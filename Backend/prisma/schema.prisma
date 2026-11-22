@@ -1,0 +1,306 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum ProjectStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum ProjectRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  COMPLETED
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InvitationStatus {
+  PENDING
+  ACCEPTED
+  DECLINED
+  CANCELED
+  EXPIRED
+}
+
+enum NotificationType {
+  PROJECT_INVITATION
+  TASK_ASSIGNED
+  TASK_UPDATED
+  TASK_COMMENTED
+  MEMBER_JOINED
+}
+
+enum ActivityEntityType {
+  PROJECT
+  MEMBER
+  INVITATION
+  TASK
+  COMMENT
+}
+
+// ==========================================
+// 1. USER MODEL
+// ==========================================
+
+model User {
+  id           String  @id @default(uuid()) @db.Uuid
+  name         String  @db.VarChar(100)
+  email        String  @unique @db.VarChar(255)
+  passwordHash String  @db.VarChar(255)
+  avatarUrl    String? @db.VarChar(2048)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  // Projects created by this user
+  createdProjects Project[] @relation("ProjectCreator")
+
+  // Projects this user belongs to
+  memberships ProjectMember[]
+
+  // Tasks created by this user
+  createdTasks Task[] @relation("TaskCreator")
+
+  // Tasks assigned to this user
+  assignedTasks Task[] @relation("TaskAssignee")
+
+  // Comments written by this user
+  comments Comment[] @relation("CommentAuthor")
+
+  // Invitations sent by this user
+  sentInvitations Invitation[] @relation("InvitationSender")
+
+  // Invitations received by this user
+  receivedInvitations Invitation[] @relation("InvitationRecipient")
+
+  // Notifications received by this user
+  notifications Notification[]
+
+  // Activities performed by this user
+  activityLogs ActivityLog[] @relation("ActivityActor")
+}
+
+// ==========================================
+// 2. PROJECT MODEL
+// ==========================================
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  name        String        @db.VarChar(120)
+  description String?       @db.Text
+  status      ProjectStatus @default(ACTIVE)
+
+  // User who originally created the project
+  createdById String @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  createdBy User @relation("ProjectCreator", fields: [createdById], references: [id], onDelete: Restrict)
+
+  members ProjectMember[]
+
+  tasks Task[]
+
+  invitations Invitation[]
+
+  notifications Notification[] @relation("ProjectNotifications")
+
+  activityLogs ActivityLog[]
+
+  @@index([createdById])
+  @@index([status])
+}
+
+// ==========================================
+// 3. PROJECT MEMBER MODEL
+// ==========================================
+
+model ProjectMember {
+  id        String      @id @default(uuid()) @db.Uuid
+  projectId String      @db.Uuid
+  userId    String      @db.Uuid
+  role      ProjectRole @default(MEMBER)
+
+  joinedAt DateTime @default(now()) @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId],references: [id],onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id],onDelete: Cascade)
+
+  // One user can join a particular project only once
+  @@unique([projectId, userId])
+  @@index([userId])
+  @@index([projectId, role])
+}
+
+// ==========================================
+// 4. TASK MODEL
+// ==========================================
+
+model Task {
+  id          String  @id @default(uuid()) @db.Uuid
+  title       String  @db.VarChar(160)
+  description String? @db.Text
+
+  projectId    String  @db.Uuid
+  createdById  String  @db.Uuid
+  assignedToId String? @db.Uuid
+
+  status   TaskStatus   @default(TODO)
+  priority TaskPriority @default(MEDIUM)
+
+  dueDate  DateTime? @db.Timestamptz(3)
+  position Int       @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId], references: [id],onDelete: Cascade)
+
+  createdBy User @relation("TaskCreator", fields: [createdById],references: [id], onDelete: Restrict )
+  assignedTo User? @relation( "TaskAssignee",fields: [assignedToId], references: [id], onDelete: SetNull )
+
+  comments Comment[]
+
+  notifications Notification[] @relation("TaskNotifications")
+
+  @@index([projectId, status])
+  @@index([projectId, priority])
+  @@index([assignedToId, status])
+  @@index([projectId, position])
+  @@index([dueDate])
+}
+
+// ==========================================
+// 5. COMMENT MODEL
+// ==========================================
+
+model Comment {
+  id       String @id @default(uuid()) @db.Uuid
+  taskId   String @db.Uuid
+  authorId String @db.Uuid
+  content  String @db.Text
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  task Task @relation(fields: [taskId],references: [id],onDelete: Cascade)
+
+  author User @relation("CommentAuthor", fields: [authorId],references: [id],onDelete: Restrict )
+
+  @@index([taskId, createdAt])
+}
+
+// ==========================================
+// 6. INVITATION MODEL
+// ==========================================
+
+model Invitation {
+  id            String @id @default(uuid()) @db.Uuid
+  projectId     String @db.Uuid
+  invitedUserId String @db.Uuid
+  invitedById   String @db.Uuid
+
+  status InvitationStatus @default(PENDING)
+
+  expiresAt   DateTime  @db.Timestamptz(3)
+  respondedAt DateTime? @db.Timestamptz(3)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId],references: [id],onDelete: Cascade)
+
+  invitedUser User @relation("InvitationRecipient",fields: [invitedUserId],references: [id],onDelete: Cascade)
+
+  invitedBy User @relation("InvitationSender",fields: [invitedById],references: [id],onDelete: Restrict)
+
+  notifications Notification[] @relation("InvitationNotifications")
+
+  @@index([projectId, status])
+  @@index([invitedUserId, status])
+  @@index([projectId, invitedUserId, status])
+}
+
+// ========================================
+// 7. NOTIFICATION MODEL
+// ==========================================
+
+model Notification {
+  id      String           @id @default(uuid()) @db.Uuid
+  userId  String           @db.Uuid
+  type    NotificationType
+  title   String           @db.VarChar(160)
+  message String           @db.Text
+
+  readAt DateTime? @db.Timestamptz(3)
+
+  relatedProjectId    String? @db.Uuid
+  relatedTaskId       String? @db.Uuid
+  relatedInvitationId String? @db.Uuid
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  user User @relation(fields: [userId],references: [id],onDelete: Cascade)
+
+  relatedProject Project? @relation("ProjectNotifications",fields: [relatedProjectId],references: [id],onDelete: SetNull)
+
+  relatedTask Task? @relation("TaskNotifications",fields: [relatedTaskId],references: [id],onDelete: SetNull)
+
+  relatedInvitation Invitation? @relation("InvitationNotifications",fields: [relatedInvitationId],references: [id],onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([userId, readAt])
+}
+
+// ==========================================
+// 8. ACTIVITY LOG MODEL
+// ==========================================
+
+model ActivityLog {
+  id        String  @id @default(uuid()) @db.Uuid
+  projectId String  @db.Uuid
+  actorId   String? @db.Uuid
+
+  action     String             @db.VarChar(80)
+  entityType ActivityEntityType
+  entityId   String?            @db.Uuid
+
+  metadata Json? @db.JsonB
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  project Project @relation(fields: [projectId],references: [id],onDelete: Cascade)
+
+  actor User? @relation("ActivityActor",fields: [actorId],references: [id],onDelete: SetNull)
+
+  @@index([projectId, createdAt])
+}
