@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { registerUser, loginUser, getCurrentUser } from "./auth.service";
+import { registerUser, loginUser, getCurrentUser, checkUsernameAvailability } from "./auth.service";
 import jwt from "jsonwebtoken";
 
 const cookieOptions = {
@@ -23,6 +23,46 @@ export const Register: RequestHandler = async (req, res, next) => {
     });
   } catch (err) {
     next(err);
+  }
+};
+
+export const checkUsername: RequestHandler = async (req, res, next) => {
+  try {
+
+    // Get username from query parameters.
+    const name = req.query.name;
+
+    // Validate username.
+    if (typeof name !== "string" || !name.trim()) {
+      res.status(400).json({
+        success: false,
+        message: "Username is required",
+      });
+      return;
+    }
+
+    // Validate maximum username length.
+    if (name.trim().length > 100) {
+      res.status(400).json({
+        success: false,
+        message: "Username cannot exceed 100 characters",
+      });
+      return;
+    }
+
+    // Check username availability.
+    const result = await checkUsernameAvailability(name);
+
+    res.status(200).json({
+      success: true,
+      message: result.available
+        ? "Username is available"
+        : "Username is already taken",
+      data: result,
+    });
+
+  } catch (error) {
+    next(error);
   }
 };
 

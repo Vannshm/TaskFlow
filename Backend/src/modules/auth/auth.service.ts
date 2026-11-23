@@ -173,6 +173,32 @@ export const registerUser = async ({
   }
 };
 
+// ==========================================
+// 2. Check UseName Uniqueness
+// ==========================================
+
+
+export const checkUsernameAvailability = async (name: string) => {
+
+  // Normalize the username.
+  const normalizedName = name.trim();
+
+  // Check whether this username already exists.
+  const existingUser = await prisma.user.findUnique({
+    where: {
+      name: normalizedName,
+    },
+    select: {
+      id: true,
+    },
+  });
+
+  // Return availability status.
+  return {
+    available: !existingUser,
+  };
+};
+
 
 // ==========================================
 // 2. LOGIN USER
