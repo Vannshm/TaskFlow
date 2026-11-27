@@ -97,6 +97,17 @@ export const createTask = async (
     );
   }
 
+  // Creating work is a project-management permission. Regular members can
+  // collaborate on and complete tasks assigned to them, but only owners and
+  // admins may add new tasks to the project.
+  if (currectUser.role !== "OWNER" && currectUser.role !== "ADMIN") {
+    throw new TaskServiceError(
+      "Only project owners and admins can create tasks",
+      403,
+      "TASK_CREATE_FORBIDDEN",
+    );
+  }
+
   const normalisedAssigneeId = assignedToId?.trim() || null;
 
   if (normalisedAssigneeId) {
