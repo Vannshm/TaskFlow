@@ -443,3 +443,99 @@
 @media (prefers-reduced-motion: reduce) {
   .tf-dashboard *, .tf-dashboard *::before, .tf-dashboard *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+
+/* Dashboard task creation */
+.tf-success-alert {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 15px;
+  padding: 10px 12px;
+  border: 1px solid #d9eee3;
+  border-radius: 9px;
+  color: #347d5d;
+  background: #f3fbf6;
+  font-size: 11px;
+}
+.tf-success-alert span { flex: 1; }
+.tf-success-alert button {
+  border: 0;
+  color: inherit;
+  background: transparent;
+  cursor: pointer;
+}
+.tf-task-modal { width: min(570px, 100%); }
+.tf-task-fields-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 14px;
+  row-gap: 2px;
+}
+.tf-task-field { min-width: 0; }
+.tf-task-field-wide { grid-column: 1 / -1; }
+.tf-task-modal select {
+  width: 100%;
+  min-height: 38px;
+  padding: 9px 11px;
+  border: 1px solid #e7eaf0;
+  border-radius: 8px;
+  outline: 0;
+  color: #343c4a;
+  background: #fff;
+  font-size: 11px;
+}
+.tf-task-modal input:focus,
+.tf-task-modal textarea:focus,
+.tf-task-modal select:focus {
+  border-color: #a9c8f4;
+  box-shadow: 0 0 0 3px rgba(40,121,239,.08);
+}
+.tf-task-modal input,
+.tf-task-modal textarea { min-height: 38px; }
+.tf-task-field-hint {
+  display: block;
+  min-height: 15px;
+  margin: 5px 0 2px;
+  color: #a0a6b1;
+  font-size: 8px;
+  line-height: 1.45;
+}
+.tf-task-start-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 9px 10px;
+  border-radius: 8px;
+  color: #778393;
+  background: #f7f9fc;
+  font-size: 9px;
+}
+.tf-task-start-status svg { flex: 0 0 auto; color: #55a17a; }
+.tf-task-start-status strong { color: #596779; }
+.tf-task-no-project {
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px 20px;
+  text-align: center;
+  border: 1px dashed #e5eaf1;
+  border-radius: 10px;
+  background: #fbfcfe;
+}
+.tf-task-no-project > strong { color: #485262; font-size: 12px; }
+.tf-task-no-project > p {
+  max-width: 350px;
+  margin: 7px 0 13px;
+  color: #929aa8;
+  font-size: 10px;
+  line-height: 1.55;
+}
+@media (max-width: 620px) {
+  .tf-task-fields-grid { grid-template-columns: minmax(0, 1fr); }
+  .tf-task-field-wide { grid-column: auto; }
+  .tf-task-start-status { align-items: flex-start; line-height: 1.45; }
+}
