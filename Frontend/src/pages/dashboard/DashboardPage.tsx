@@ -10,8 +10,6 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  CircleHelp,
-  Clock3,
   FolderKanban,
   Inbox,
   LayoutDashboard,
