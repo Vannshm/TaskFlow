@@ -10,6 +10,7 @@ function App() {
     <Route path="/login" element={<LoginPage/>}/>
     <Route path="/dashboard" element={<DashboardPage/>}/>
     <Route path="/projects" element={<DashboardPage/>}/>
+    <Route path="/projects/:projectId" element={<DashboardPage/>}/>
     {/* Keep /home working for existing login redirects and bookmarks. */}
     <Route path="/home" element={<DashboardPage/>}/>
   </Routes>
