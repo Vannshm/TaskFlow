@@ -268,6 +268,7 @@ export function ProjectWorkspace({ project, tasks, currentUserId, canCreateTask,
         <div className="tf-project-workspace-identity">
           <span className={`tf-status-pill ${project.status.toLowerCase()}`}>{statusLabel(project.status)}</span>
           {membership && <span className="tf-project-role-pill"><ShieldCheck size={12} /> Your role: {membership.role.toLowerCase()}</span>}
+          {canCreateTask && project.status === "ACTIVE" && <button className="tf-primary-button tf-small-button" type="button" onClick={onCreateTask}><Plus size={14} /> New task</button>}
         </div>
       </div>
       <div className="tf-project-workspace-tabs" role="tablist" aria-label="Project sections">
@@ -308,7 +309,7 @@ export function ProjectWorkspace({ project, tasks, currentUserId, canCreateTask,
         <section className="tf-panel tf-project-work-tasks-panel">
           <div className="tf-panel-heading">
             <div><h2>Project tasks</h2><p>Every task shared with members of {project.name}</p></div>
-            {canCreateTask && project.status === "ACTIVE" && <button className="tf-primary-button tf-small-button" type="button" onClick={onCreateTask}><Plus size={14} /> New task</button>}
+
           </div>
           <div className="tf-project-task-filters">
             {(["ALL", "TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as const).map((status) => (
