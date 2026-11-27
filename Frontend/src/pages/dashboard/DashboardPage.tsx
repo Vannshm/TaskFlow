@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clock3,
   ChevronDown,
   ChevronRight,
   FolderKanban,
@@ -79,6 +80,12 @@ interface Task {
   createdAt: string;
   updatedAt: string;
   project: { id: string; name: string; status: string };
+}
+
+interface ProjectTask extends Omit<Task, "project"> {
+  createdBy: User;
+  assignedTo: User | null;
+  project: Task["project"];
 }
 
 interface ActivityItem {
@@ -207,7 +214,10 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
+  // "tasks" is intentionally the personal assigned-to-me feed.
+  // "projectTasks" contains every task in every project the user belongs to.
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -225,6 +235,8 @@ export default function DashboardPage() {
 
   const [projectTab, setProjectTab] = useState<"projects" | "members">("projects");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("ALL");
+  const [taskScope, setTaskScope] = useState<"PROJECT" | "MINE">("PROJECT");
+  const [taskProjectFilter, setTaskProjectFilter] = useState("ALL");
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -263,8 +275,46 @@ export default function DashboardPage() {
 
     if (summaryResult.status === "fulfilled") setSummary(summaryResult.value);
     else errors.push("Dashboard summary could not be loaded.");
-    if (projectResult.status === "fulfilled") setProjects(projectResult.value);
-    else errors.push("Projects could not be loaded.");
+    if (projectResult.status === "fulfilled") {
+      const projectList = projectResult.value;
+      setProjects(projectList);
+
+      // The personal /tasks endpoint only returns tasks assigned to the
+      // current user. Load each member-visible project task board as well,
+      // so the dashboard can show the team's complete project workload.
+      const projectTaskResults = await Promise.allSettled(
+        projectList.map(async (project) => {
+          const projectTasks = await apiRequest<Omit<ProjectTask, "project">[]>(
+            `/tasks/project/${project.id}/tasks`,
+          );
+          return projectTasks.map((task) => ({
+            ...task,
+            project: {
+              id: project.id,
+              name: project.name,
+              status: project.status,
+            },
+          }));
+        }),
+      );
+
+      const allProjectTasks: ProjectTask[] = [];
+      let projectTaskLoadFailed = false;
+      projectTaskResults.forEach((result) => {
+        if (result.status === "fulfilled") allProjectTasks.push(...result.value);
+        else projectTaskLoadFailed = true;
+      });
+      allProjectTasks.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      setProjectTasks(allProjectTasks);
+      if (projectTaskLoadFailed) errors.push("Some project task boards could not be loaded.");
+    } else {
+      setProjects([]);
+      setProjectTasks([]);
+      errors.push("Projects could not be loaded.");
+    }
+
     if (taskResult.status === "fulfilled") setTasks(taskResult.value);
     else errors.push("Your assigned tasks could not be loaded.");
     if (activityResult.status === "fulfilled") setActivities(activityResult.value.activities || []);
@@ -341,8 +391,12 @@ export default function DashboardPage() {
 
   const matchingTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query.length >= 2 ? tasks.filter((task) => `${task.title} ${task.project.name}`.toLowerCase().includes(query)).slice(0, 5) : [];
-  }, [tasks, searchQuery]);
+    return query.length >= 2
+      ? projectTasks
+          .filter((task) => `${task.title} ${task.project.name}`.toLowerCase().includes(query))
+          .slice(0, 5)
+      : [];
+  }, [projectTasks, searchQuery]);
 
   const collaborators = useMemo(() => {
     const people = new Map<string, { user: User; projectNames: Set<string> }>();
@@ -357,13 +411,57 @@ export default function DashboardPage() {
     return Array.from(people.values()).sort((a, b) => a.user.name.localeCompare(b.user.name));
   }, [projects, user?.id]);
 
-  // Tasks can only be created in active projects; the backend rejects archived
-  // and completed projects. Assignees are selected from the chosen project's members.
+  // Project members can collaborate on tasks, but creating tasks is limited
+  // to owners and admins. The backend enforces the same rule independently.
   const activeProjects = useMemo(
     () => projects.filter((project) => project.status === "ACTIVE"),
     [projects],
   );
-  const selectedTaskProject = activeProjects.find((project) => project.id === taskProjectId);
+  const taskCreationProjects = useMemo(
+    () => activeProjects.filter((project) =>
+      project.members.some(
+        (member) =>
+          member.user.id === user?.id &&
+          (member.role === "OWNER" || member.role === "ADMIN"),
+      ),
+    ),
+    [activeProjects, user?.id],
+  );
+  const canCreateTask = taskCreationProjects.length > 0;
+  const selectedTaskProject = taskCreationProjects.find((project) => project.id === taskProjectId);
+
+  const visibleProjectTasks = useMemo(
+    () => projectTasks.filter((task) =>
+      taskProjectFilter === "ALL" || task.project.id === taskProjectFilter,
+    ),
+    [projectTasks, taskProjectFilter],
+  );
+
+  const filteredProjectTasks = useMemo(
+    () => visibleProjectTasks.filter((task) =>
+      taskFilter === "ALL" || task.status === taskFilter,
+    ),
+    [visibleProjectTasks, taskFilter],
+  );
+
+  const filteredMyTasks = useMemo(
+    () => tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter),
+    [tasks, taskFilter],
+  );
+
+  const canCompleteProjectTask = useCallback((task: ProjectTask) => {
+    const currentUserId = user?.id;
+    if (!currentUserId) return false;
+
+    const project = projects.find((item) => item.id === task.project.id);
+    const membership = project?.members.find((member) => member.user.id === currentUserId);
+    return (
+      task.assignedTo?.id === currentUserId ||
+      task.createdBy.id === currentUserId ||
+      membership?.role === "OWNER" ||
+      membership?.role === "ADMIN"
+    );
+  }, [projects, user?.id]);
 
   const weeklyProgress = useMemo(() => {
     const today = new Date();
@@ -376,15 +474,15 @@ export default function DashboardPage() {
       const date = new Date(monday);
       date.setDate(monday.getDate() + index);
       const dateKey = date.toDateString();
-      const count = tasks.filter((task) => task.status === "COMPLETED" && new Date(task.updatedAt).toDateString() === dateKey).length;
+      const count = projectTasks.filter((task) => task.status === "COMPLETED" && new Date(task.updatedAt).toDateString() === dateKey).length;
       return { label: date.toLocaleDateString(undefined, { weekday: "short" }), count, date };
     });
-  }, [tasks]);
+  }, [projectTasks]);
 
   const maxWeeklyCount = Math.max(1, ...weeklyProgress.map((day) => day.count));
   const completedThisWeek = weeklyProgress.reduce((total, day) => total + day.count, 0);
   const unreadNotifications = notifications.filter((item) => !item.readAt).length;
-  const upcomingTasks = tasks.filter((task) => {
+  const upcomingTasks = projectTasks.filter((task) => {
     if (!task.dueDate || task.status === "COMPLETED") return false;
     const due = new Date(task.dueDate);
     const now = new Date();
@@ -402,7 +500,7 @@ export default function DashboardPage() {
   const pageCopy: Record<View, { title: string; description: string }> = {
     overview: { title: "Overview", description: "A clear view of what’s moving across your workspace." },
     projects: { title: "Projects", description: "The workspaces you’re part of, all in one place." },
-    tasks: { title: "My tasks", description: "Tasks assigned to you across your projects." },
+    tasks: { title: "Tasks", description: "Shared project work and the tasks assigned directly to you." },
     activity: { title: "Activity", description: "The latest updates recorded across your projects." },
     members: { title: "Members", description: "People collaborating with you across TaskFlow." },
     notifications: { title: "Notifications", description: "Updates and reminders from your workspace." },
@@ -418,7 +516,7 @@ export default function DashboardPage() {
   const openCreateTask = () => {
     setTaskTitle("");
     setTaskDescription("");
-    setTaskProjectId(activeProjects[0]?.id || "");
+    setTaskProjectId(taskCreationProjects[0]?.id || "");
     setTaskPriority("MEDIUM");
     setTaskDueDate("");
     setTaskAssigneeId(user?.id || "");
@@ -444,8 +542,8 @@ export default function DashboardPage() {
       setTaskFormError("Task title cannot exceed 160 characters.");
       return;
     }
-    if (!taskProjectId || !activeProjects.some((project) => project.id === taskProjectId)) {
-      setTaskFormError("Choose an active project for this task.");
+    if (!taskProjectId || !taskCreationProjects.some((project) => project.id === taskProjectId)) {
+      setTaskFormError("Choose an active project where you are an owner or admin.");
       return;
     }
 
@@ -638,7 +736,7 @@ export default function DashboardPage() {
                       {searchLoading && <div className="tf-search-empty">Searching your workspace…</div>}
                       {!searchLoading && matchingProjects.length === 0 && matchingTasks.length === 0 && searchUsers.length === 0 && <div className="tf-search-empty">No matching projects, tasks or people.</div>}
                       {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openView("projects"); setSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Project</small></span></button>)}</div>}
-                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
+                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter(task.project.id); setTaskFilter("ALL"); openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
                       {searchUsers.length > 0 && <div className="tf-search-group"><span>PEOPLE</span>{searchUsers.map((person) => <button key={person.id} onClick={() => { void navigator.clipboard?.writeText(person.id); openView("members"); }} title="Copy user ID"><Users size={15} /><span><strong>{person.name}</strong><small>{person.email} · copy user ID</small></span></button>)}</div>}
                     </div>
                   </>
@@ -665,7 +763,7 @@ export default function DashboardPage() {
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
                   <RefreshCw size={15} className={refreshing ? "tf-spin" : ""} /> {refreshing ? "Refreshing" : "Refresh"}
                 </button>
-                <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>
+                {canCreateTask && <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>}
                 <button className="tf-secondary-button" onClick={() => setShowCreateProject(true)}><FolderKanban size={15} /> New project</button>
               </div>
             </div>
@@ -691,7 +789,7 @@ export default function DashboardPage() {
                     <article className="tf-metric-card">
                       <div className="tf-metric-top"><span className="tf-metric-icon amber"><CalendarDays size={17} /></span><span>Upcoming</span></div>
                       <strong>{upcomingTasks.length}</strong>
-                      <small>Assigned tasks due in 7 days</small>
+                      <small>Project tasks due in 7 days</small>
                     </article>
                   </section>
 
@@ -741,13 +839,40 @@ export default function DashboardPage() {
                     )}
                     {projects.length > 0 && <button className="tf-panel-link" onClick={() => openView(projectTab === "projects" ? "projects" : "members")}>View all {projectTab} <ArrowRight size={14} /></button>}
                   </section>
+
+                  <section className="tf-panel tf-shared-tasks-panel">
+                    <div className="tf-panel-heading">
+                      <div><h2>Project tasks</h2><p>Work in progress across all your project teams</p></div>
+                      <span className="tf-count-pill">{projectTasks.length} tasks</span>
+                    </div>
+                    {projectTasks.length === 0 ? (
+                      <div className="tf-empty-inline"><ListTodo size={17} /><span>No project tasks yet. Tasks created by your team will appear here.</span></div>
+                    ) : (
+                      <div className="tf-shared-task-list">
+                        {projectTasks.slice(0, 5).map((task) => (
+                          <article className="tf-shared-task-row" key={task.id}>
+                            <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                            <div className="tf-shared-task-copy">
+                              <strong>{task.title}</strong>
+                              <small>{task.project.name} · {task.assignedTo ? `Assigned to ${task.assignedTo.name}` : "Unassigned"}</small>
+                            </div>
+                            <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                            <small className="tf-shared-task-date">{task.dueDate ? formatDate(task.dueDate) : "No due date"}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    {projectTasks.length > 0 && <button className="tf-panel-link" onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter("ALL"); openView("tasks"); }}>View all project tasks <ArrowRight size={14} /></button>}
+                  </section>
                 </div>
 
                 <aside className="tf-overview-aside">
                   <section className="tf-panel tf-quick-panel">
                     <div className="tf-quick-intro"><div><span className="tf-eyebrow"><Sparkles size={12} /> GET MOVING</span><h2>Start your next step</h2><p>Pick up where your team left off.</p></div><span className="tf-quick-spark"><Sparkles size={20} /></span></div>
                     <div className="tf-quick-list">
-                      <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                      {canCreateTask
+                        ? <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                        : <div className="tf-quick-permission-note">Task creation is available to project owners and admins.</div>}
                       <button onClick={() => setShowCreateProject(true)}><span className="tf-quick-icon violet"><Plus size={16} /></span><span><strong>Create a project</strong><small>Set up a new team workspace</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("tasks")}><span className="tf-quick-icon amber"><ListTodo size={16} /></span><span><strong>Review my tasks</strong><small>{tasks.length} assigned to you</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("invitations")}><span className="tf-quick-icon amber"><Mail size={16} /></span><span><strong>Project invitations</strong><small>{invitations.length} waiting for a response</small></span><ChevronRight size={16} /></button>
@@ -761,6 +886,35 @@ export default function DashboardPage() {
                     <div className="tf-breakdown-bars">{taskStatusRows.map((row) => <span key={row.key} className={row.key} style={{ width: `${summary.tasks.total ? (row.count / summary.tasks.total) * 100 : 0}%` }} />)}</div>
                     <div className="tf-breakdown-list">{taskStatusRows.map((row) => <div key={row.key}><span><i className={row.key} />{row.label}</span><strong>{row.count}</strong></div>)}</div>
                     {summary.tasks.overdue > 0 && <div className="tf-overdue-note"><Clock3 size={14} /> {summary.tasks.overdue} overdue {summary.tasks.overdue === 1 ? "task needs" : "tasks need"} attention</div>}
+                  </section>
+
+                  <section className="tf-panel tf-my-tasks-panel">
+                    <div className="tf-panel-heading">
+                      <div><h2>My tasks</h2><p>Tasks assigned directly to you</p></div>
+                      <span className="tf-count-pill">{tasks.length}</span>
+                    </div>
+                    {tasks.length === 0 ? (
+                      <div className="tf-empty-inline"><CheckCircle2 size={17} /><span>Nothing assigned to you yet. You can still follow your team's project tasks.</span></div>
+                    ) : (
+                      <div className="tf-my-task-preview-list">
+                        {tasks.slice(0, 4).map((task) => (
+                          <article className="tf-my-task-preview-row" key={task.id}>
+                            <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                            <div className="tf-my-task-preview-copy">
+                              <strong>{task.title}</strong>
+                              <small>{task.project.name}</small>
+                            </div>
+                            <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                            {task.status !== "COMPLETED" && (
+                              <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>
+                                {completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}
+                              </button>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    <button className="tf-panel-link" onClick={() => { setTaskScope("MINE"); setTaskFilter("ALL"); openView("tasks"); }}>Open my tasks <ArrowRight size={14} /></button>
                   </section>
 
                   <section className="tf-panel tf-inbox-panel">
@@ -781,9 +935,80 @@ export default function DashboardPage() {
 
             {view === "tasks" && (
               <section className="tf-panel tf-full-panel">
-                <div className="tf-panel-heading"><div><h2>Tasks assigned to you</h2><p>Due dates, priority and status from your project tasks</p></div><span className="tf-count-pill">{tasks.length} tasks</span></div>
-                <div className="tf-filter-row"><span><SlidersHorizontal size={14} /> Filter</span>{(["ALL", "TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as TaskFilter[]).map((filter) => <button key={filter} className={taskFilter === filter ? "active" : ""} onClick={() => setTaskFilter(filter)}>{filter === "ALL" ? "All tasks" : statusLabel(filter)}</button>)}</div>
-                {tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter).length === 0 ? <div className="tf-empty-state"><span className="tf-empty-icon"><CheckCircle2 size={20} /></span><strong>No tasks in this view</strong><p>When a task is assigned to you, it will appear here.</p></div> : <div className="tf-task-list">{tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter).map((task) => <article className="tf-task-row" key={task.id}><span className={`tf-priority-dot ${task.priority.toLowerCase()}`} /><div className="tf-task-copy"><strong>{task.title}</strong><small>{task.project.name}</small></div><span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span><span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span><span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>{task.status !== "COMPLETED" && <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>{completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}</button>}</article>)}</div>}
+                <div className="tf-panel-heading">
+                  <div><h2>{taskScope === "PROJECT" ? "Project tasks" : "My tasks"}</h2><p>{taskScope === "PROJECT" ? "All tasks in projects you belong to, including work assigned to teammates." : "Only tasks assigned directly to your account."}</p></div>
+                  <span className="tf-count-pill">{taskScope === "PROJECT" ? projectTasks.length : tasks.length} tasks</span>
+                </div>
+
+                <div className="tf-task-scope-tabs" role="tablist" aria-label="Task scope">
+                  <button role="tab" aria-selected={taskScope === "PROJECT"} className={taskScope === "PROJECT" ? "active" : ""} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter("ALL"); setTaskFilter("ALL"); }}>
+                    <Users size={14} /> Project tasks <span>{projectTasks.length}</span>
+                  </button>
+                  <button role="tab" aria-selected={taskScope === "MINE"} className={taskScope === "MINE" ? "active" : ""} onClick={() => { setTaskScope("MINE"); setTaskFilter("ALL"); }}>
+                    <CheckCircle2 size={14} /> Assigned to me <span>{tasks.length}</span>
+                  </button>
+                </div>
+
+                <div className="tf-filter-row">
+                  <span><SlidersHorizontal size={14} /> Filter</span>
+                  {taskScope === "PROJECT" && (
+                    <label className="tf-project-task-filter">
+                      <span>Project</span>
+                      <select value={taskProjectFilter} onChange={(event) => setTaskProjectFilter(event.target.value)}>
+                        <option value="ALL">All projects</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {(["ALL", "TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as TaskFilter[]).map((filter) => (
+                    <button key={filter} className={taskFilter === filter ? "active" : ""} onClick={() => setTaskFilter(filter)}>
+                      {filter === "ALL" ? "All statuses" : statusLabel(filter)}
+                    </button>
+                  ))}
+                </div>
+
+                {taskScope === "PROJECT" ? (
+                  filteredProjectTasks.length === 0 ? (
+                    <div className="tf-empty-state"><span className="tf-empty-icon"><ListTodo size={20} /></span><strong>No project tasks in this view</strong><p>Tasks created in your projects will appear here for the whole team to follow.</p></div>
+                  ) : (
+                    <div className="tf-task-list">
+                      {filteredProjectTasks.map((task) => (
+                        <article className="tf-task-row" key={task.id}>
+                          <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                          <div className="tf-task-copy">
+                            <strong>{task.title}</strong>
+                            <small>{task.project.name} · {task.assignedTo ? `Assigned to ${task.assignedTo.name}` : "Unassigned"} · Created by {task.createdBy.name}</small>
+                          </div>
+                          <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                          <span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
+                          <span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>
+                          {task.status !== "COMPLETED" && canCompleteProjectTask(task) && (
+                            <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>
+                              {completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}
+                            </button>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  filteredMyTasks.length === 0 ? (
+                    <div className="tf-empty-state"><span className="tf-empty-icon"><CheckCircle2 size={20} /></span><strong>No tasks assigned to you in this view</strong><p>Tasks assigned to your account will appear here. You can still see all team work under Project tasks.</p></div>
+                  ) : (
+                    <div className="tf-task-list">
+                      {filteredMyTasks.map((task) => (
+                        <article className="tf-task-row" key={task.id}>
+                          <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                          <div className="tf-task-copy"><strong>{task.title}</strong><small>{task.project.name}</small></div>
+                          <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                          <span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
+                          <span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>
+                          {task.status !== "COMPLETED" && <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>{completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}</button>}
+                        </article>
+                      ))}
+                    </div>
+                  )
+                )}
               </section>
             )}
 
@@ -832,14 +1057,11 @@ export default function DashboardPage() {
               <button type="button" className="tf-modal-close" aria-label="Close" onClick={closeCreateTask}><X size={18} /></button>
             </div>
 
-            {activeProjects.length === 0 ? (
+            {taskCreationProjects.length === 0 ? (
               <div className="tf-task-no-project">
                 <span className="tf-empty-icon"><FolderKanban size={20} /></span>
-                <strong>No active projects available</strong>
-                <p>Create a project first, or ask a project owner to add you to an active workspace. Tasks must belong to an active project.</p>
-                <button type="button" className="tf-secondary-button tf-small-button" onClick={() => { closeCreateTask(); setShowCreateProject(true); }}>
-                  <Plus size={14} /> Create a project
-                </button>
+                <strong>No project where you can create tasks</strong>
+                <p>Only project owners and admins can create tasks. Ask an owner to promote your role, or choose a project where you already have admin access.</p>
               </div>
             ) : (
               <>
@@ -856,7 +1078,7 @@ export default function DashboardPage() {
                       required
                     >
                       <option value="">Select an existing project</option>
-                      {activeProjects.map((project) => (
+                      {taskCreationProjects.map((project) => (
                         <option key={project.id} value={project.id}>{project.name}</option>
                       ))}
                     </select>
@@ -919,7 +1141,7 @@ export default function DashboardPage() {
             {taskFormError && <p className="tf-form-error"><AlertCircle size={14} /> {taskFormError}</p>}
             <div className="tf-modal-actions">
               <button type="button" className="tf-secondary-button" onClick={closeCreateTask} disabled={creatingTask}>Cancel</button>
-              {activeProjects.length > 0 && <button type="submit" className="tf-primary-button" disabled={creatingTask || !taskProjectId}>{creatingTask ? "Creating…" : <><Plus size={15} /> Create task</>}</button>}
+              {taskCreationProjects.length > 0 && <button type="submit" className="tf-primary-button" disabled={creatingTask || !taskProjectId}>{creatingTask ? "Creating…" : <><Plus size={15} /> Create task</>}</button>}
             </div>
           </form>
         </div>
