@@ -1,3 +1,119 @@
-/* Page-specific spacing retained from the original dashboard Projects view. */
+/* Projects page and selected-project workspace */
 .tf-project-list-expanded { margin-top: 3px; }
-.tf-project-list-expanded .tf-project-row { min-height: 62px; }
+.tf-project-list-expanded .tf-project-row { min-height: 62px; gap: 8px; padding-right: 9px; }
+.tf-project-row-open { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; padding: 0; border: 0; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.tf-project-row-open:focus-visible { outline: 3px solid rgba(40,121,239,.22); outline-offset: 4px; border-radius: 7px; }
+.tf-project-row-open:hover .tf-project-copy strong { color: var(--tf-blue); }
+.tf-project-row-open .tf-project-copy { flex: 1; }
+.tf-project-open-arrow { flex: 0 0 auto; color: #b2bbc8; }
+.tf-project-row-actions { display: flex; align-items: center; gap: 5px; flex: 0 0 auto; }
+.tf-project-row-actions button { width: 29px; height: 29px; display: grid; place-items: center; border: 1px solid #e9edf3; border-radius: 7px; color: #7c8797; background: #fff; cursor: pointer; }
+.tf-project-row-actions button:hover { color: #347bd8; border-color: #d8e7ff; background: #f5f9ff; }
+.tf-project-row-actions button.danger:hover { color: #c74e55; border-color: #f2d5d7; background: #fff7f7; }
+.tf-project-modal { width: min(490px, 100%); }
+.tf-modal-icon.danger { color: #c74e55; background: #fff0f0; }
+.tf-danger-button { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0 12px; border: 1px solid #c94d55; border-radius: 7px; color: #fff; background: #c94d55; font-size: 10px; font-weight: 700; cursor: pointer; }
+.tf-danger-button:disabled { opacity: .5; cursor: not-allowed; }
+.tf-delete-project-copy { margin: 0 0 12px; color: #6f7887; font-size: 11px; line-height: 1.55; }
+.tf-delete-project-copy strong { display: block; margin-top: 6px; color: #343d4b; font-size: 13px; overflow-wrap: anywhere; }
+.tf-delete-project-warning { display: flex; align-items: flex-start; gap: 8px; margin-top: 12px; padding: 10px; border: 1px solid #f3e1d3; border-radius: 8px; color: #a46c39; background: #fff9f2; font-size: 10px; line-height: 1.45; }
+.tf-delete-project-warning svg { flex: 0 0 auto; }
+.tf-project-workspace { display: flex; flex-direction: column; gap: 14px; }
+.tf-project-workspace-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.tf-project-back-button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 0; border: 0; color: #788496; background: transparent; font-size: 10px; font-weight: 600; cursor: pointer; }
+.tf-project-back-button:hover { color: var(--tf-blue); }
+.tf-project-workspace-identity { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.tf-project-role-pill { display: inline-flex; align-items: center; gap: 5px; padding: 5px 8px; border: 1px solid #e9edf3; border-radius: 20px; color: #7d8796; background: #fff; font-size: 9px; text-transform: capitalize; }
+.tf-project-workspace-tabs { display: flex; align-items: center; gap: 16px; padding: 0 2px 10px; border-bottom: 1px solid #eceff3; }
+.tf-project-workspace-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 8px 1px; border: 0; border-bottom: 2px solid transparent; color: #8b94a2; background: transparent; font-size: 10px; cursor: pointer; }
+.tf-project-workspace-tabs button.active { border-bottom-color: var(--tf-blue); color: #3b78cb; font-weight: 700; }
+.tf-project-workspace-tabs button span { min-width: 17px; padding: 2px 5px; border-radius: 12px; color: #8290a1; background: #f0f3f7; font-size: 8px; text-align: center; }
+.tf-project-work-metrics { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 10px; }
+.tf-project-work-metric { min-width: 0; display: grid; grid-template-columns: 32px 1fr; align-items: center; gap: 3px 9px; padding: 13px; border: 1px solid #eceff4; border-radius: 10px; background: #fff; box-shadow: 0 5px 18px rgba(24,37,63,.025); }
+.tf-project-work-metric > span { width: 30px; height: 30px; grid-row: span 2; display: grid; place-items: center; border-radius: 8px; color: #4e88d5; background: #eff5ff; }
+.tf-project-work-metric small { color: #8d96a5; font-size: 9px; }
+.tf-project-work-metric strong { color: #333e4d; font-family: Manrope,sans-serif; font-size: 21px; line-height: 1.1; }
+.tf-project-work-grid { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(220px,.8fr); gap: 12px; }
+.tf-project-progress-panel, .tf-project-summary-panel, .tf-project-work-tasks-panel, .tf-project-members-panel { padding: 17px 18px; }
+.tf-project-progress-value { color: #397ed8; font-size: 17px; }
+.tf-project-progress-track { height: 9px; overflow: hidden; margin-top: 22px; border-radius: 20px; background: #edf1f6; }
+.tf-project-progress-track span { height: 100%; display: block; border-radius: inherit; background: linear-gradient(90deg,#4388eb,#73b8e9); transition: width .25s ease; }
+.tf-project-progress-legend { display: flex; justify-content: space-between; gap: 8px; margin-top: 8px; color: #9aa2af; font-size: 9px; }
+.tf-project-description { margin-top: 25px; padding-top: 14px; border-top: 1px solid #f0f2f5; }
+.tf-project-description small { color: #9ba4b1; font-size: 8px; font-weight: 700; letter-spacing: .08em; }
+.tf-project-description p { margin: 6px 0 0; color: #697587; font-size: 10px; line-height: 1.6; white-space: pre-wrap; }
+.tf-project-status-line { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 11px 0; border-top: 1px solid #f1f2f5; color: #798494; font-size: 10px; }
+.tf-project-status-line:first-of-type { margin-top: 4px; }
+.tf-project-status-line span { display: inline-flex; align-items: center; gap: 7px; }
+.tf-project-status-line i { width: 7px; height: 7px; border-radius: 3px; background: #d9e5f4; }
+.tf-project-status-line i.progress { background: #4d92f1; }
+.tf-project-status-line i.review { background: #aa9be8; }
+.tf-project-status-line i.completed { background: #69bd9b; }
+.tf-project-status-line strong { color: #495362; font-size: 10px; }
+.tf-project-view-all { width: auto; margin: 0; padding: 0; border: 0; }
+.tf-project-work-task-list { margin-top: 4px; }
+.tf-project-work-task-row { min-width: 0; display: flex; align-items: center; gap: 10px; padding: 12px 2px; border-top: 1px solid #f1f2f5; }
+.tf-project-work-task-copy { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tf-project-work-task-copy strong { overflow: hidden; color: #485160; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.tf-project-work-task-copy small, .tf-project-work-due { color: #9ba2ad; font-size: 8px; }
+.tf-project-work-priority { min-width: 50px; color: #9aa1ad; font-size: 8px; }
+.tf-project-work-priority.high, .tf-project-work-priority.urgent { color: #c46d58; }
+.tf-project-task-filters { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 10px; }
+.tf-project-task-filters button { padding: 6px 9px; border: 1px solid #e9edf3; border-radius: 18px; color: #828c9a; background: #fff; font-size: 9px; cursor: pointer; }
+.tf-project-task-filters button.active { border-color: #d8e7ff; color: #347bd8; background: #f0f6ff; font-weight: 700; }
+.tf-project-empty { min-height: 130px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; color: #9aa3b0; text-align: center; }
+.tf-project-empty strong { color: #677384; font-size: 10px; }
+.tf-project-empty span { font-size: 9px; }
+.tf-project-member-list { margin-top: 4px; }
+.tf-project-member-row { display: flex; align-items: center; gap: 10px; padding: 11px 3px; border-top: 1px solid #f1f2f5; }
+.tf-project-member-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tf-project-member-row strong { color: #4a5361; font-size: 10px; }
+.tf-project-member-row small { overflow: hidden; color: #9ba2ad; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.tf-project-member-row > span:last-child { color: #8a94a2; font-size: 8px; text-transform: capitalize; }
+.tf-project-context-meta { display: inline-flex; align-items: center; margin-top: 7px; color: #8c96a5; font-size: 9px; }
+@media (max-width: 850px) {
+  .tf-project-work-grid { grid-template-columns: 1fr; }
+  .tf-project-work-metrics { gap: 7px; }
+  .tf-project-work-metric { padding: 10px 8px; grid-template-columns: 27px 1fr; column-gap: 6px; }
+  .tf-project-work-metric > span { width: 26px; height: 26px; }
+  .tf-project-work-metric strong { font-size: 18px; }
+}
+@media (max-width: 620px) {
+  .tf-project-list-expanded .tf-project-row { align-items: flex-start; flex-wrap: wrap; }
+  .tf-project-row-open { flex-wrap: wrap; gap: 7px; }
+  .tf-project-row-open .tf-project-copy { flex: 1 1 calc(100% - 45px); }
+  .tf-project-row-open .tf-project-avatars { margin-left: 38px; }
+  .tf-project-row-open .tf-project-date { margin-left: auto; }
+  .tf-project-open-arrow { display: none; }
+  .tf-project-row-actions { margin-left: auto; }
+  .tf-project-work-metrics { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .tf-project-workspace-toolbar { align-items: flex-start; flex-direction: column; }
+  .tf-project-work-task-row { flex-wrap: wrap; gap: 7px; }
+  .tf-project-work-task-copy { flex-basis: calc(100% - 25px); }
+  .tf-project-work-priority { margin-left: 18px; }
+  .tf-project-work-due { margin-left: auto; }
+}
+
+.tf-project-row-clickable { cursor: pointer; }
+.tf-project-row-clickable:hover .tf-project-copy strong { color: var(--tf-blue); }
+.tf-project-row-clickable:focus-visible { outline: 3px solid rgba(40,121,239,.22); outline-offset: 3px; border-radius: 8px; }
+
+.tf-project-global-panels { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(260px,.85fr); gap: 12px; }
+.tf-project-global-activity, .tf-project-global-inbox { min-width: 0; padding: 16px 17px 13px; }
+.tf-project-global-activity-list { margin-top: 5px; }
+.tf-project-global-activity-row { display: flex; align-items: flex-start; gap: 9px; padding: 10px 2px; border-top: 1px solid #f1f2f5; }
+.tf-project-global-activity-dot { width: 7px; height: 7px; flex: 0 0 7px; margin-top: 4px; border-radius: 50%; background: #6b9be0; }
+.tf-project-global-activity-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tf-project-global-activity-row strong { color: #4c5665; font-size: 9px; font-weight: 600; text-transform: capitalize; }
+.tf-project-global-activity-row small { color: #9ba3af; font-size: 8px; }
+.tf-project-global-empty { padding: 17px 2px; color: #9ba3af; font-size: 9px; }
+.tf-project-global-inbox-row { width: 100%; display: flex; align-items: center; gap: 9px; padding: 11px 1px; border: 0; border-top: 1px solid #f1f2f5; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.tf-project-global-inbox-row > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tf-project-global-inbox-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; color: #5f8bc4; background: #eff5ff; }
+.tf-project-global-inbox-row strong { color: #4d5868; font-size: 9px; }
+.tf-project-global-inbox-row small { color: #9ba3af; font-size: 8px; }
+.tf-project-global-inbox-row b { min-width: 20px; padding: 3px 5px; border-radius: 14px; color: #687b96; background: #f0f3f7; font-size: 8px; font-weight: 700; text-align: center; }
+.tf-project-global-inbox-row > svg { color: #adb6c2; }
+.tf-project-global-inbox-row:hover > span:nth-child(2) strong { color: var(--tf-blue); }
+.tf-project-global-inbox-note { margin: 6px 0 0; padding-top: 9px; border-top: 1px solid #f1f2f5; color: #9ba3af; font-size: 8px; line-height: 1.45; }
+@media (max-width: 850px) { .tf-project-global-panels { grid-template-columns: 1fr; } }
