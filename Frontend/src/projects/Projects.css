@@ -93,3 +93,7 @@
   .tf-project-work-priority { margin-left: 18px; }
   .tf-project-work-due { margin-left: auto; }
 }
+
+.tf-project-row-clickable { cursor: pointer; }
+.tf-project-row-clickable:hover .tf-project-copy strong { color: var(--tf-blue); }
+.tf-project-row-clickable:focus-visible { outline: 3px solid rgba(40,121,239,.22); outline-offset: 3px; border-radius: 8px; }
