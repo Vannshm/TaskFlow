@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import type { FormEvent } from "react";
 import {
   Activity,
@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import logo from "../../assets/taskflow-logo.png";
 import "./DashboardPage.css";
-import Projects, { Avatar, formatDate, statusLabel, type Project, type User } from "../../projects/Projects";
+import Projects, { Avatar, formatDate, ProjectWorkspace, statusLabel, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
@@ -63,11 +63,7 @@ interface Task {
   project: { id: string; name: string; status: string };
 }
 
-interface ProjectTask extends Omit<Task, "project"> {
-  createdBy: User;
-  assignedTo: User | null;
-  project: Task["project"];
-}
+type ProjectTask = ProjectWorkspaceTask & { createdBy: User };
 
 interface ActivityItem {
   id: string;
@@ -113,7 +109,7 @@ interface SearchUserResult {
   avatarUrl: string | null;
 }
 
-type View = "overview" | "projects" | "tasks" | "activity" | "members" | "notifications" | "invitations";
+type View = "overview" | "projects" | "project" | "tasks" | "activity" | "members" | "notifications" | "invitations";
 type TaskFilter = "ALL" | Task["status"];
 
 const EMPTY_SUMMARY: DashboardSummary = {
@@ -161,30 +157,38 @@ function priorityLabel(priority: string) {
 }
 
 function isView(value: unknown): value is View {
-  return value === "overview" || value === "projects" || value === "tasks" || value === "activity" ||
+  return value === "overview" || value === "projects" || value === "project" || value === "tasks" || value === "activity" ||
     value === "members" || value === "notifications" || value === "invitations";
 }
 
 export default function DashboardPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId: string }>();
   const routeView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
-  const initialView: View = location.pathname === "/projects"
-    ? "projects"
-    : isView(routeView) && routeView !== "projects" ? routeView : "overview";
+  const initialView: View = location.pathname.startsWith("/projects/")
+    ? "project"
+    : location.pathname === "/projects"
+      ? "projects"
+      : isView(routeView) && routeView !== "projects" && routeView !== "project" ? routeView : "overview";
   const [view, setView] = useState<View>(initialView);
 
   useEffect(() => {
+    if (location.pathname.startsWith("/projects/")) {
+      setView("project");
+      return;
+    }
     if (location.pathname === "/projects") {
       setView("projects");
       return;
     }
     const requestedView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
-    setView(isView(requestedView) && requestedView !== "projects" ? requestedView : "overview");
+    setView(isView(requestedView) && requestedView !== "projects" && requestedView !== "project" ? requestedView : "overview");
   }, [location.pathname, location.state]);
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
+  const selectedProject = projects.find((project) => project.id === projectId) || null;
   // "tasks" is intentionally the personal assigned-to-me feed.
   // "projectTasks" contains every task in every project the user belongs to.
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -400,6 +404,13 @@ export default function DashboardPage() {
   );
   const canCreateTask = taskCreationProjects.length > 0;
   const selectedTaskProject = taskCreationProjects.find((project) => project.id === taskProjectId);
+  const selectedProjectTasks = useMemo(
+    () => projectTasks.filter((task) => task.project.id === projectId),
+    [projectTasks, projectId],
+  );
+  const selectedProjectMembership = selectedProject?.members.find((member) => member.user.id === user?.id);
+  const canCreateTaskInSelectedProject = selectedProject?.status === "ACTIVE" &&
+    (selectedProjectMembership?.role === "OWNER" || selectedProjectMembership?.role === "ADMIN");
 
   const visibleProjectTasks = useMemo(
     () => projectTasks.filter((task) =>
@@ -471,6 +482,7 @@ export default function DashboardPage() {
   const pageCopy: Record<View, { title: string; description: string }> = {
     overview: { title: "Overview", description: "A clear view of what’s moving across your workspace." },
     projects: { title: "Projects", description: "The workspaces you’re part of, all in one place." },
+    project: { title: selectedProject?.name || "Project workspace", description: selectedProject?.description || "Project overview, tasks and members." },
     tasks: { title: "Tasks", description: "Shared project work and the tasks assigned directly to you." },
     activity: { title: "Activity", description: "The latest updates recorded across your projects." },
     members: { title: "Members", description: "People collaborating with you across TaskFlow." },
@@ -482,17 +494,24 @@ export default function DashboardPage() {
     setView(nextView);
     if (nextView === "projects") {
       if (location.pathname !== "/projects") navigate("/projects");
-    } else if (location.pathname === "/projects") {
+    } else if (location.pathname === "/projects" || location.pathname.startsWith("/projects/")) {
       navigate("/dashboard", { state: { dashboardView: nextView } });
     }
     setMobileNavOpen(false);
     setSearchOpen(false);
   };
 
-  const openCreateTask = () => {
+  const openProject = (nextProjectId: string) => {
+    setView("project");
+    navigate(`/projects/${nextProjectId}`);
+    setMobileNavOpen(false);
+    setSearchOpen(false);
+  };
+
+  const openCreateTask = (preferredProjectId?: string) => {
     setTaskTitle("");
     setTaskDescription("");
-    setTaskProjectId(taskCreationProjects[0]?.id || "");
+    setTaskProjectId(preferredProjectId && taskCreationProjects.some((project) => project.id === preferredProjectId) ? preferredProjectId : taskCreationProjects[0]?.id || "");
     setTaskPriority("MEDIUM");
     setTaskDueDate("");
     setTaskAssigneeId(user?.id || "");
@@ -552,6 +571,35 @@ export default function DashboardPage() {
     } finally {
       setCreatingTask(false);
     }
+  };
+
+  const handleUpdateProject = async (targetProjectId: string, payload: ProjectUpdatePayload) => {
+    const updatedProject = await apiRequest<Partial<Project>>(`/project/projects/${targetProjectId}`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    });
+    setProjects((current) => current.map((project) =>
+      project.id === targetProjectId ? { ...project, ...updatedProject } : project,
+    ));
+    setProjectTasks((current) => current.map((task) =>
+      task.project.id === targetProjectId
+        ? { ...task, project: { ...task.project, name: payload.name } }
+        : task,
+    ));
+    await refreshDashboard();
+    setPageNotice(`"${payload.name}" was updated successfully.`);
+  };
+
+  const handleDeleteProject = async (targetProjectId: string) => {
+    await apiRequest<Project>(`/project/projects/${targetProjectId}`, { method: "DELETE" });
+    setProjects((current) => current.filter((project) => project.id !== targetProjectId));
+    setProjectTasks((current) => current.filter((task) => task.project.id !== targetProjectId));
+    if (projectId === targetProjectId || location.pathname === `/projects/${targetProjectId}`) {
+      navigate("/projects");
+      setView("projects");
+    }
+    await refreshDashboard();
+    setPageNotice("Project deleted successfully.");
   };
 
   const handleCreateProject = async (event: FormEvent<HTMLFormElement>) => {
@@ -663,7 +711,7 @@ export default function DashboardPage() {
           <div className="tf-rail-divider" />
           <nav className="tf-rail-nav" aria-label="Main sections">
             <button className={view === "overview" ? "active" : ""} onClick={() => openView("overview")} title="Overview" aria-label="Overview"><LayoutDashboard size={18} /></button>
-            <button className={view === "projects" ? "active" : ""} onClick={() => openView("projects")} title="Projects" aria-label="Projects"><FolderKanban size={18} /></button>
+            <button className={view === "projects" || view === "project" ? "active" : ""} onClick={() => openView("projects")} title="Projects" aria-label="Projects"><FolderKanban size={18} /></button>
             <button className={view === "tasks" ? "active" : ""} onClick={() => openView("tasks")} title="My tasks" aria-label="My tasks"><ListTodo size={18} /></button>
             <button className={view === "activity" ? "active" : ""} onClick={() => openView("activity")} title="Activity" aria-label="Activity"><Activity size={18} /></button>
             <button className={view === "members" ? "active" : ""} onClick={() => openView("members")} title="Members" aria-label="Members"><Users size={18} /></button>
@@ -685,7 +733,7 @@ export default function DashboardPage() {
             </button>
             <nav className="tf-top-nav" aria-label="Workspace navigation">
               {(["overview", "projects", "tasks", "activity", "members"] as View[]).map((item) => (
-                <button key={item} className={view === item ? "active" : ""} onClick={() => openView(item)}>
+                <button key={item} className={(view === item || (item === "projects" && view === "project")) ? "active" : ""} onClick={() => openView(item)}>
                   {item === "overview" ? "Overview" : item === "tasks" ? "Tasks" : item === "activity" ? "Activity" : item.charAt(0).toUpperCase() + item.slice(1)}
                 </button>
               ))}
@@ -734,6 +782,7 @@ export default function DashboardPage() {
                 <div className="tf-eyebrow"><span /> WORKSPACE</div>
                 <h1>{pageCopy[view].title}</h1>
                 <p>{view === "overview" && user?.name ? `Welcome back, ${user.name.split(" ")[0]}. ` : ""}{pageCopy[view].description}</p>
+                {view === "project" && selectedProject && <span className="tf-project-context-meta">{selectedProject.name} · {statusLabel(selectedProject.status)} · {selectedProject.members.length} members</span>}
               </div>
               <div className="tf-heading-actions">
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
@@ -903,7 +952,33 @@ export default function DashboardPage() {
             )}
 
             {view === "projects" && (
-              <Projects projects={projects} onCreateProject={() => setShowCreateProject(true)} />
+              <Projects
+                projects={projects}
+                currentUserId={user?.id || ""}
+                onCreateProject={() => setShowCreateProject(true)}
+                onSelectProject={openProject}
+                onUpdateProject={handleUpdateProject}
+                onDeleteProject={handleDeleteProject}
+              />
+            )}
+
+            {view === "project" && (
+              selectedProject ? (
+                <ProjectWorkspace
+                  project={selectedProject}
+                  tasks={selectedProjectTasks}
+                  currentUserId={user?.id || ""}
+                  canCreateTask={Boolean(canCreateTaskInSelectedProject)}
+                  onBackToProjects={() => openView("projects")}
+                  onCreateTask={() => openCreateTask(selectedProject.id)}
+                />
+              ) : (
+                <section className="tf-panel tf-full-panel tf-project-not-found">
+                  <strong>Project not found</strong>
+                  <p>This project may have been deleted or you may no longer be a member.</p>
+                  <button className="tf-secondary-button tf-small-button" onClick={() => openView("projects")}>Back to all projects</button>
+                </section>
+              )
             )}
 
             {view === "tasks" && (
