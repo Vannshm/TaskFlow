@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import type { FormEvent } from "react";
 import {
   Activity,
@@ -28,6 +29,7 @@ import {
 } from "lucide-react";
 import logo from "../../assets/taskflow-logo.png";
 import "./DashboardPage.css";
+import Projects, { Avatar, formatDate, statusLabel, type Project, type User } from "../../projects/Projects";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
@@ -35,13 +37,6 @@ interface ApiResponse<T> {
   success: boolean;
   message?: string;
   data: T;
-}
-
-interface User {
-  id: string;
-  name: string;
-  email: string;
-  avatarUrl: string | null;
 }
 
 interface DashboardSummary {
@@ -54,20 +49,6 @@ interface DashboardSummary {
     completed: number;
     overdue: number;
   };
-}
-
-interface ProjectMember {
-  role: "OWNER" | "ADMIN" | "MEMBER";
-  user: User;
-}
-
-interface Project {
-  id: string;
-  name: string;
-  description: string | null;
-  status: "ACTIVE" | "COMPLETED" | "ARCHIVED";
-  updatedAt: string;
-  members: ProjectMember[];
 }
 
 interface Task {
@@ -158,16 +139,6 @@ async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T
   return result.data;
 }
 
-function getInitials(name: string) {
-  return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("");
-}
-
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
-}
-
 function timeAgo(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "";
@@ -181,18 +152,6 @@ function timeAgo(value: string) {
   return `${days}d ago`;
 }
 
-function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    ACTIVE: "Active",
-    COMPLETED: "Completed",
-    ARCHIVED: "Archived",
-    TODO: "To do",
-    IN_PROGRESS: "In progress",
-    IN_REVIEW: "In review",
-  };
-  return labels[status] || status.replaceAll("_", " ");
-}
-
 function readableAction(action: string) {
   return action.toLowerCase().replaceAll("_", " ");
 }
@@ -201,16 +160,19 @@ function priorityLabel(priority: string) {
   return priority.charAt(0) + priority.slice(1).toLowerCase();
 }
 
-function Avatar({ user, size = "md" }: { user: Pick<User, "name" | "avatarUrl">; size?: "sm" | "md" | "lg" }) {
-  return (
-    <span className={`tf-avatar tf-avatar-${size}`} title={user.name}>
-      {user.avatarUrl ? <img src={user.avatarUrl} alt="" /> : getInitials(user.name)}
-    </span>
-  );
+function isView(value: unknown): value is View {
+  return value === "overview" || value === "projects" || value === "tasks" || value === "activity" ||
+    value === "members" || value === "notifications" || value === "invitations";
 }
 
 export default function DashboardPage() {
-  const [view, setView] = useState<View>("overview");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const routeView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
+  const initialView: View = location.pathname === "/projects"
+    ? "projects"
+    : isView(routeView) && routeView !== "projects" ? routeView : "overview";
+  const [view, setView] = useState<View>(initialView);
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -509,6 +471,11 @@ export default function DashboardPage() {
 
   const openView = (nextView: View) => {
     setView(nextView);
+    if (nextView === "projects") {
+      if (location.pathname !== "/projects") navigate("/projects");
+    } else if (location.pathname === "/projects") {
+      navigate("/dashboard", { state: { dashboardView: nextView } });
+    }
     setMobileNavOpen(false);
     setSearchOpen(false);
   };
@@ -927,10 +894,7 @@ export default function DashboardPage() {
             )}
 
             {view === "projects" && (
-              <section className="tf-panel tf-full-panel">
-                <div className="tf-panel-heading"><div><h2>All projects</h2><p>{projects.length} project{projects.length === 1 ? "" : "s"} you belong to</p></div><button className="tf-primary-button tf-small-button" onClick={() => setShowCreateProject(true)}><Plus size={14} /> New project</button></div>
-                {projects.length === 0 ? <div className="tf-empty-state"><strong>No projects yet</strong><p>Create your first project to get started.</p></div> : <div className="tf-project-list tf-project-list-expanded">{projects.map((project) => <article className="tf-project-row" key={project.id}><span className="tf-project-mark"><FolderKanban size={16} /></span><div className="tf-project-copy"><strong>{project.name}</strong><small>{project.description?.trim() || "No description added"}</small></div><div className="tf-project-avatars">{project.members.slice(0, 4).map((member) => <Avatar key={member.user.id} user={member.user} size="sm" />)}</div><span className={`tf-status-pill ${project.status.toLowerCase()}`}>{statusLabel(project.status)}</span><small className="tf-project-date">Updated {formatDate(project.updatedAt)}</small></article>)}</div>}
-              </section>
+              <Projects projects={projects} onCreateProject={() => setShowCreateProject(true)} />
             )}
 
             {view === "tasks" && (
