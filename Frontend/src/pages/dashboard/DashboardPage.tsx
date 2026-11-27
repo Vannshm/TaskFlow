@@ -173,6 +173,15 @@ export default function DashboardPage() {
     ? "projects"
     : isView(routeView) && routeView !== "projects" ? routeView : "overview";
   const [view, setView] = useState<View>(initialView);
+
+  useEffect(() => {
+    if (location.pathname === "/projects") {
+      setView("projects");
+      return;
+    }
+    const requestedView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
+    setView(isView(requestedView) && requestedView !== "projects" ? requestedView : "overview");
+  }, [location.pathname, location.state]);
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
