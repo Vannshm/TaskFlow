@@ -782,13 +782,13 @@ export default function DashboardPage() {
                 <div className="tf-eyebrow"><span /> WORKSPACE</div>
                 <h1>{pageCopy[view].title}</h1>
                 <p>{view === "overview" && user?.name ? `Welcome back, ${user.name.split(" ")[0]}. ` : ""}{pageCopy[view].description}</p>
-                {view === "project" && selectedProject && <span className="tf-project-context-meta">{selectedProject.name} · {statusLabel(selectedProject.status)} · {selectedProject.members.length} members</span>}
+                {view === "project" && selectedProject && <span className="tf-project-context-meta">{statusLabel(selectedProject.status)} · {selectedProject.members.length} members · selected project workspace</span>}
               </div>
               <div className="tf-heading-actions">
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
                   <RefreshCw size={15} className={refreshing ? "tf-spin" : ""} /> {refreshing ? "Refreshing" : "Refresh"}
                 </button>
-                {canCreateTask && <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>}
+                {view !== "project" && canCreateTask && <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>}
                 <button className="tf-secondary-button" onClick={() => setShowCreateProject(true)}><FolderKanban size={15} /> New project</button>
               </div>
             </div>
