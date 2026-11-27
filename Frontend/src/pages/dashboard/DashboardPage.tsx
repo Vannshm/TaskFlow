@@ -982,8 +982,14 @@ export default function DashboardPage() {
                   tasks={selectedProjectTasks}
                   currentUserId={user?.id || ""}
                   canCreateTask={Boolean(canCreateTaskInSelectedProject)}
+                  activities={activities}
+                  unreadNotifications={unreadNotifications}
+                  pendingInvitations={invitations.length}
                   onBackToProjects={() => openView("projects")}
                   onCreateTask={() => openCreateTask(selectedProject.id)}
+                  onOpenActivity={() => openView("activity")}
+                  onOpenNotifications={() => openView("notifications")}
+                  onOpenInvitations={() => openView("invitations")}
                 />
               ) : (
                 <section className="tf-panel tf-full-panel tf-project-not-found">
