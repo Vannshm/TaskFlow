@@ -732,7 +732,7 @@ export default function DashboardPage() {
                       {searchLoading && <div className="tf-search-empty">Searching your workspace…</div>}
                       {!searchLoading && matchingProjects.length === 0 && matchingTasks.length === 0 && searchUsers.length === 0 && <div className="tf-search-empty">No matching projects, tasks or people.</div>}
                       {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openView("projects"); setSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Project</small></span></button>)}</div>}
-                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
+                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter(task.project.id); setTaskFilter("ALL"); openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
                       {searchUsers.length > 0 && <div className="tf-search-group"><span>PEOPLE</span>{searchUsers.map((person) => <button key={person.id} onClick={() => { void navigator.clipboard?.writeText(person.id); openView("members"); }} title="Copy user ID"><Users size={15} /><span><strong>{person.name}</strong><small>{person.email} · copy user ID</small></span></button>)}</div>}
                     </div>
                   </>
@@ -759,7 +759,7 @@ export default function DashboardPage() {
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
                   <RefreshCw size={15} className={refreshing ? "tf-spin" : ""} /> {refreshing ? "Refreshing" : "Refresh"}
                 </button>
-                <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>
+                {canCreateTask && <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>}
                 <button className="tf-secondary-button" onClick={() => setShowCreateProject(true)}><FolderKanban size={15} /> New project</button>
               </div>
             </div>
@@ -785,7 +785,7 @@ export default function DashboardPage() {
                     <article className="tf-metric-card">
                       <div className="tf-metric-top"><span className="tf-metric-icon amber"><CalendarDays size={17} /></span><span>Upcoming</span></div>
                       <strong>{upcomingTasks.length}</strong>
-                      <small>Assigned tasks due in 7 days</small>
+                      <small>Project tasks due in 7 days</small>
                     </article>
                   </section>
 
@@ -835,13 +835,40 @@ export default function DashboardPage() {
                     )}
                     {projects.length > 0 && <button className="tf-panel-link" onClick={() => openView(projectTab === "projects" ? "projects" : "members")}>View all {projectTab} <ArrowRight size={14} /></button>}
                   </section>
+
+                  <section className="tf-panel tf-shared-tasks-panel">
+                    <div className="tf-panel-heading">
+                      <div><h2>Project tasks</h2><p>Work in progress across all your project teams</p></div>
+                      <span className="tf-count-pill">{projectTasks.length} tasks</span>
+                    </div>
+                    {projectTasks.length === 0 ? (
+                      <div className="tf-empty-inline"><ListTodo size={17} /><span>No project tasks yet. Tasks created by your team will appear here.</span></div>
+                    ) : (
+                      <div className="tf-shared-task-list">
+                        {projectTasks.slice(0, 5).map((task) => (
+                          <article className="tf-shared-task-row" key={task.id}>
+                            <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                            <div className="tf-shared-task-copy">
+                              <strong>{task.title}</strong>
+                              <small>{task.project.name} · {task.assignedTo ? `Assigned to ${task.assignedTo.name}` : "Unassigned"}</small>
+                            </div>
+                            <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                            <small className="tf-shared-task-date">{task.dueDate ? formatDate(task.dueDate) : "No due date"}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    {projectTasks.length > 0 && <button className="tf-panel-link" onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter("ALL"); openView("tasks"); }}>View all project tasks <ArrowRight size={14} /></button>}
+                  </section>
                 </div>
 
                 <aside className="tf-overview-aside">
                   <section className="tf-panel tf-quick-panel">
                     <div className="tf-quick-intro"><div><span className="tf-eyebrow"><Sparkles size={12} /> GET MOVING</span><h2>Start your next step</h2><p>Pick up where your team left off.</p></div><span className="tf-quick-spark"><Sparkles size={20} /></span></div>
                     <div className="tf-quick-list">
-                      <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                      {canCreateTask
+                        ? <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                        : <div className="tf-quick-permission-note">Task creation is available to project owners and admins.</div>}
                       <button onClick={() => setShowCreateProject(true)}><span className="tf-quick-icon violet"><Plus size={16} /></span><span><strong>Create a project</strong><small>Set up a new team workspace</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("tasks")}><span className="tf-quick-icon amber"><ListTodo size={16} /></span><span><strong>Review my tasks</strong><small>{tasks.length} assigned to you</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("invitations")}><span className="tf-quick-icon amber"><Mail size={16} /></span><span><strong>Project invitations</strong><small>{invitations.length} waiting for a response</small></span><ChevronRight size={16} /></button>
@@ -855,6 +882,35 @@ export default function DashboardPage() {
                     <div className="tf-breakdown-bars">{taskStatusRows.map((row) => <span key={row.key} className={row.key} style={{ width: `${summary.tasks.total ? (row.count / summary.tasks.total) * 100 : 0}%` }} />)}</div>
                     <div className="tf-breakdown-list">{taskStatusRows.map((row) => <div key={row.key}><span><i className={row.key} />{row.label}</span><strong>{row.count}</strong></div>)}</div>
                     {summary.tasks.overdue > 0 && <div className="tf-overdue-note"><Clock3 size={14} /> {summary.tasks.overdue} overdue {summary.tasks.overdue === 1 ? "task needs" : "tasks need"} attention</div>}
+                  </section>
+
+                  <section className="tf-panel tf-my-tasks-panel">
+                    <div className="tf-panel-heading">
+                      <div><h2>My tasks</h2><p>Tasks assigned directly to you</p></div>
+                      <span className="tf-count-pill">{tasks.length}</span>
+                    </div>
+                    {tasks.length === 0 ? (
+                      <div className="tf-empty-inline"><CheckCircle2 size={17} /><span>Nothing assigned to you yet. You can still follow your team's project tasks.</span></div>
+                    ) : (
+                      <div className="tf-my-task-preview-list">
+                        {tasks.slice(0, 4).map((task) => (
+                          <article className="tf-my-task-preview-row" key={task.id}>
+                            <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                            <div className="tf-my-task-preview-copy">
+                              <strong>{task.title}</strong>
+                              <small>{task.project.name}</small>
+                            </div>
+                            <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                            {task.status !== "COMPLETED" && (
+                              <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>
+                                {completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}
+                              </button>
+                            )}
+                          </article>
+                        ))}
+                      </div>
+                    )}
+                    <button className="tf-panel-link" onClick={() => { setTaskScope("MINE"); setTaskFilter("ALL"); openView("tasks"); }}>Open my tasks <ArrowRight size={14} /></button>
                   </section>
 
                   <section className="tf-panel tf-inbox-panel">
@@ -875,9 +931,80 @@ export default function DashboardPage() {
 
             {view === "tasks" && (
               <section className="tf-panel tf-full-panel">
-                <div className="tf-panel-heading"><div><h2>Tasks assigned to you</h2><p>Due dates, priority and status from your project tasks</p></div><span className="tf-count-pill">{tasks.length} tasks</span></div>
-                <div className="tf-filter-row"><span><SlidersHorizontal size={14} /> Filter</span>{(["ALL", "TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as TaskFilter[]).map((filter) => <button key={filter} className={taskFilter === filter ? "active" : ""} onClick={() => setTaskFilter(filter)}>{filter === "ALL" ? "All tasks" : statusLabel(filter)}</button>)}</div>
-                {tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter).length === 0 ? <div className="tf-empty-state"><span className="tf-empty-icon"><CheckCircle2 size={20} /></span><strong>No tasks in this view</strong><p>When a task is assigned to you, it will appear here.</p></div> : <div className="tf-task-list">{tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter).map((task) => <article className="tf-task-row" key={task.id}><span className={`tf-priority-dot ${task.priority.toLowerCase()}`} /><div className="tf-task-copy"><strong>{task.title}</strong><small>{task.project.name}</small></div><span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span><span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span><span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>{task.status !== "COMPLETED" && <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>{completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}</button>}</article>)}</div>}
+                <div className="tf-panel-heading">
+                  <div><h2>{taskScope === "PROJECT" ? "Project tasks" : "My tasks"}</h2><p>{taskScope === "PROJECT" ? "All tasks in projects you belong to, including work assigned to teammates." : "Only tasks assigned directly to your account."}</p></div>
+                  <span className="tf-count-pill">{taskScope === "PROJECT" ? projectTasks.length : tasks.length} tasks</span>
+                </div>
+
+                <div className="tf-task-scope-tabs" role="tablist" aria-label="Task scope">
+                  <button role="tab" aria-selected={taskScope === "PROJECT"} className={taskScope === "PROJECT" ? "active" : ""} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter("ALL"); setTaskFilter("ALL"); }}>
+                    <Users size={14} /> Project tasks <span>{projectTasks.length}</span>
+                  </button>
+                  <button role="tab" aria-selected={taskScope === "MINE"} className={taskScope === "MINE" ? "active" : ""} onClick={() => { setTaskScope("MINE"); setTaskFilter("ALL"); }}>
+                    <CheckCircle2 size={14} /> Assigned to me <span>{tasks.length}</span>
+                  </button>
+                </div>
+
+                <div className="tf-filter-row">
+                  <span><SlidersHorizontal size={14} /> Filter</span>
+                  {taskScope === "PROJECT" && (
+                    <label className="tf-project-task-filter">
+                      <span>Project</span>
+                      <select value={taskProjectFilter} onChange={(event) => setTaskProjectFilter(event.target.value)}>
+                        <option value="ALL">All projects</option>
+                        {projects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}
+                      </select>
+                    </label>
+                  )}
+                  {(["ALL", "TODO", "IN_PROGRESS", "IN_REVIEW", "COMPLETED"] as TaskFilter[]).map((filter) => (
+                    <button key={filter} className={taskFilter === filter ? "active" : ""} onClick={() => setTaskFilter(filter)}>
+                      {filter === "ALL" ? "All statuses" : statusLabel(filter)}
+                    </button>
+                  ))}
+                </div>
+
+                {taskScope === "PROJECT" ? (
+                  filteredProjectTasks.length === 0 ? (
+                    <div className="tf-empty-state"><span className="tf-empty-icon"><ListTodo size={20} /></span><strong>No project tasks in this view</strong><p>Tasks created in your projects will appear here for the whole team to follow.</p></div>
+                  ) : (
+                    <div className="tf-task-list">
+                      {filteredProjectTasks.map((task) => (
+                        <article className="tf-task-row" key={task.id}>
+                          <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                          <div className="tf-task-copy">
+                            <strong>{task.title}</strong>
+                            <small>{task.project.name} · {task.assignedTo ? `Assigned to ${task.assignedTo.name}` : "Unassigned"} · Created by {task.createdBy.name}</small>
+                          </div>
+                          <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                          <span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
+                          <span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>
+                          {task.status !== "COMPLETED" && canCompleteProjectTask(task) && (
+                            <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>
+                              {completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}
+                            </button>
+                          )}
+                        </article>
+                      ))}
+                    </div>
+                  )
+                ) : (
+                  filteredMyTasks.length === 0 ? (
+                    <div className="tf-empty-state"><span className="tf-empty-icon"><CheckCircle2 size={20} /></span><strong>No tasks assigned to you in this view</strong><p>Tasks assigned to your account will appear here. You can still see all team work under Project tasks.</p></div>
+                  ) : (
+                    <div className="tf-task-list">
+                      {filteredMyTasks.map((task) => (
+                        <article className="tf-task-row" key={task.id}>
+                          <span className={`tf-priority-dot ${task.priority.toLowerCase()}`} />
+                          <div className="tf-task-copy"><strong>{task.title}</strong><small>{task.project.name}</small></div>
+                          <span className={`tf-status-pill task-${task.status.toLowerCase()}`}>{statusLabel(task.status)}</span>
+                          <span className={`tf-priority-label ${task.priority.toLowerCase()}`}>{priorityLabel(task.priority)}</span>
+                          <span className="tf-task-due">{task.dueDate ? <><CalendarDays size={13} /> {formatDate(task.dueDate)}</> : "No due date"}</span>
+                          {task.status !== "COMPLETED" && <button className="tf-complete-button" onClick={() => void handleCompleteTask(task.id)} disabled={completingTaskId === task.id}>{completingTaskId === task.id ? "Saving…" : <><Check size={13} /> Complete</>}</button>}
+                        </article>
+                      ))}
+                    </div>
+                  )
+                )}
               </section>
             )}
 
