@@ -80,7 +80,28 @@
 }
 .tf-rail-bottom { margin-top: auto; display: flex; flex-direction: column; gap: 8px; }
 .tf-rail-bottom button:first-child { background: #f5f7fa; color: #535e70; }
-.tf-app-main { flex: 1; min-width: 0; background: #fff; }
+.tf-app-main {
+  flex: 1;
+  min-width: 0;
+  position: relative;
+  isolation: isolate;
+  background: #fff;
+}
+.tf-app-main::before {
+  content: "";
+  position: absolute;
+  inset: 69px 0 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(91, 119, 160, .055) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(91, 119, 160, .055) 1px, transparent 1px);
+  background-size: 46px 46px;
+  background-position: 0 0;
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,.8), rgba(0,0,0,.46) 72%, transparent 100%);
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.8), rgba(0,0,0,.46) 72%, transparent 100%);
+}
+.tf-content { position: relative; z-index: 1; }
 .tf-topbar {
   height: 69px; display: flex; align-items: center; gap: 22px; padding: 0 34px;
   border-bottom: 1px solid #f0f1f4; position: relative; z-index: 6; background: rgba(255,255,255,.96);
@@ -538,4 +559,143 @@
   .tf-task-fields-grid { grid-template-columns: minmax(0, 1fr); }
   .tf-task-field-wide { grid-column: auto; }
   .tf-task-start-status { align-items: flex-start; line-height: 1.45; }
+}
+
+
+/* Project-wide task feed and the separate personal task list */
+.tf-quick-permission-note {
+  padding: 12px 4px;
+  color: #9aa2af;
+  font-size: 9px;
+  line-height: 1.55;
+}
+.tf-shared-tasks-panel,
+.tf-my-tasks-panel { padding: 16px 17px 13px; }
+.tf-shared-task-list,
+.tf-my-task-preview-list { margin-top: 9px; }
+.tf-shared-task-row {
+  min-width: 0;
+  min-height: 46px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 8px 2px;
+  border-top: 1px solid #f1f2f5;
+}
+.tf-shared-task-copy,
+.tf-my-task-preview-copy {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.tf-shared-task-copy strong,
+.tf-my-task-preview-copy strong {
+  overflow: hidden;
+  color: #485160;
+  font-size: 10px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tf-shared-task-copy small,
+.tf-my-task-preview-copy small {
+  overflow: hidden;
+  color: #9ba2ad;
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tf-shared-task-date {
+  flex: 0 0 auto;
+  color: #a1a7b1;
+  font-size: 8px;
+  white-space: nowrap;
+}
+.tf-my-task-preview-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 10px 1px;
+  border-top: 1px solid #f1f2f5;
+}
+.tf-my-task-preview-copy { flex-basis: calc(100% - 30px); }
+.tf-my-task-preview-row .tf-status-pill { margin-left: 15px; }
+.tf-my-task-preview-row .tf-complete-button { margin-left: auto; }
+.tf-task-scope-tabs {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 2px 0 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f0f1f4;
+}
+.tf-task-scope-tabs button {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border: 1px solid #e9edf3;
+  border-radius: 8px;
+  color: #7d8796;
+  background: #fff;
+  font-size: 10px;
+  cursor: pointer;
+}
+.tf-task-scope-tabs button.active {
+  border-color: #d8e7ff;
+  color: #347bd8;
+  background: #f0f6ff;
+  font-weight: 700;
+}
+.tf-task-scope-tabs button span {
+  min-width: 18px;
+  padding: 2px 5px;
+  border-radius: 12px;
+  color: #8792a1;
+  background: #f0f2f5;
+  font-size: 8px;
+  text-align: center;
+}
+.tf-task-scope-tabs button.active span {
+  color: #347bd8;
+  background: #e1edff;
+}
+.tf-project-task-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 4px;
+  color: #8e96a4;
+  font-size: 9px;
+}
+.tf-project-task-filter select {
+  max-width: 210px;
+  min-height: 29px;
+  padding: 4px 8px;
+  border: 1px solid #e8ebf0;
+  border-radius: 7px;
+  color: #667181;
+  background: white;
+  font-size: 9px;
+}
+@media (max-width: 850px) {
+  .tf-app-main::before { background-size: 44px 44px; }
+}
+@media (max-width: 620px) {
+  .tf-app-main::before {
+    background-size: 42px 42px;
+    background-image:
+      linear-gradient(to right, rgba(91, 119, 160, .045) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(91, 119, 160, .045) 1px, transparent 1px);
+  }
+  .tf-shared-task-row { flex-wrap: wrap; }
+  .tf-shared-task-copy { flex-basis: calc(100% - 25px); }
+  .tf-shared-task-date { margin-left: auto; }
+  .tf-task-scope-tabs { flex-wrap: wrap; }
+  .tf-project-task-filter { width: 100%; justify-content: space-between; }
+  .tf-project-task-filter select { flex: 1; max-width: none; }
 }
