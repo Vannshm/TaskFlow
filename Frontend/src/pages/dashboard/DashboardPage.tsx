@@ -759,7 +759,7 @@ export default function DashboardPage() {
                     <div className="tf-search-results">
                       {searchLoading && <div className="tf-search-empty">Searching your workspace…</div>}
                       {!searchLoading && matchingProjects.length === 0 && matchingTasks.length === 0 && searchUsers.length === 0 && <div className="tf-search-empty">No matching projects, tasks or people.</div>}
-                      {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openView("projects"); setSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Project</small></span></button>)}</div>}
+                      {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openProject(project.id); setSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Open project workspace</small></span></button>)}</div>}
                       {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter(task.project.id); setTaskFilter("ALL"); openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
                       {searchUsers.length > 0 && <div className="tf-search-group"><span>PEOPLE</span>{searchUsers.map((person) => <button key={person.id} onClick={() => { void navigator.clipboard?.writeText(person.id); openView("members"); }} title="Copy user ID"><Users size={15} /><span><strong>{person.name}</strong><small>{person.email} · copy user ID</small></span></button>)}</div>}
                     </div>
@@ -850,7 +850,20 @@ export default function DashboardPage() {
                     {projectTab === "projects" ? (
                       projects.length === 0 ? <div className="tf-empty-state"><span className="tf-empty-icon"><FolderKanban size={20} /></span><strong>Your first project starts here</strong><p>Create a project to bring tasks and teammates together.</p><button className="tf-primary-button tf-small-button" onClick={() => setShowCreateProject(true)}><Plus size={14} /> Create project</button></div> :
                       <div className="tf-project-list">{projects.slice(0, 4).map((project) => (
-                        <article className="tf-project-row" key={project.id}>
+                        <article
+                          className="tf-project-row tf-project-row-clickable"
+                          key={project.id}
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openProject(project.id)}
+                          onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === " ") {
+                              event.preventDefault();
+                              openProject(project.id);
+                            }
+                          }}
+                          aria-label={`Open project ${project.name}`}
+                        >
                           <span className="tf-project-mark"><FolderKanban size={16} /></span>
                           <div className="tf-project-copy"><strong>{project.name}</strong><small>{project.description?.trim() || "No description added"}</small></div>
                           <div className="tf-project-avatars">{project.members.slice(0, 3).map((member) => <Avatar key={member.user.id} user={member.user} size="sm" />)}{project.members.length > 3 && <span className="tf-avatar tf-avatar-sm tf-avatar-extra">+{project.members.length - 3}</span>}</div>
