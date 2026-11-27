@@ -166,25 +166,15 @@ export default function DashboardPage() {
   const navigate = useNavigate();
   const { projectId } = useParams<{ projectId: string }>();
   const routeView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
-  const initialView: View = location.pathname.startsWith("/projects/")
+  // The URL and its navigation state are the source of truth for the active view.
+  // Deriving this during render avoids mirroring router state with an effect.
+  const view: View = location.pathname.startsWith("/projects/")
     ? "project"
     : location.pathname === "/projects"
       ? "projects"
-      : isView(routeView) && routeView !== "projects" && routeView !== "project" ? routeView : "overview";
-  const [view, setView] = useState<View>(initialView);
-
-  useEffect(() => {
-    if (location.pathname.startsWith("/projects/")) {
-      setView("project");
-      return;
-    }
-    if (location.pathname === "/projects") {
-      setView("projects");
-      return;
-    }
-    const requestedView = (location.state as { dashboardView?: unknown } | null)?.dashboardView;
-    setView(isView(requestedView) && requestedView !== "projects" && requestedView !== "project" ? requestedView : "overview");
-  }, [location.pathname, location.state]);
+      : isView(routeView) && routeView !== "projects" && routeView !== "project"
+        ? routeView
+        : "overview";
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -207,6 +197,12 @@ export default function DashboardPage() {
   const [searchLoading, setSearchLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
+
+  const updateSearchQuery = (nextQuery: string) => {
+    setSearchQuery(nextQuery);
+    setSearchUsers([]);
+    setSearchLoading(false);
+  };
 
   const [projectTab, setProjectTab] = useState<"projects" | "members">("projects");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("ALL");
@@ -334,11 +330,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const query = searchQuery.trim();
-    if (query.length < 2) {
-      setSearchUsers([]);
-      setSearchLoading(false);
-      return;
-    }
+    if (query.length < 2) return;
 
     let cancelled = false;
     const timer = window.setTimeout(async () => {
@@ -491,10 +483,9 @@ export default function DashboardPage() {
   };
 
   const openView = (nextView: View) => {
-    setView(nextView);
     if (nextView === "projects") {
       if (location.pathname !== "/projects") navigate("/projects");
-    } else if (location.pathname === "/projects" || location.pathname.startsWith("/projects/")) {
+    } else {
       navigate("/dashboard", { state: { dashboardView: nextView } });
     }
     setMobileNavOpen(false);
@@ -502,7 +493,6 @@ export default function DashboardPage() {
   };
 
   const openProject = (nextProjectId: string) => {
-    setView("project");
     navigate(`/projects/${nextProjectId}`);
     setMobileNavOpen(false);
     setSearchOpen(false);
@@ -596,7 +586,6 @@ export default function DashboardPage() {
     setProjectTasks((current) => current.filter((task) => task.project.id !== targetProjectId));
     if (projectId === targetProjectId || location.pathname === `/projects/${targetProjectId}`) {
       navigate("/projects");
-      setView("projects");
     }
     await refreshDashboard();
     setPageNotice("Project deleted successfully.");
@@ -745,7 +734,7 @@ export default function DashboardPage() {
                   <input
                     ref={searchInputRef}
                     value={searchQuery}
-                    onChange={(event) => { setSearchQuery(event.target.value); setSearchOpen(true); }}
+                    onChange={(event) => { updateSearchQuery(event.target.value); setSearchOpen(true); }}
                     onFocus={() => setSearchOpen(true)}
                     onKeyDown={(event) => { if (event.key === "Escape") setSearchOpen(false); }}
                     placeholder="Search or ask TaskFlow..."
@@ -759,8 +748,8 @@ export default function DashboardPage() {
                     <div className="tf-search-results">
                       {searchLoading && <div className="tf-search-empty">Searching your workspace…</div>}
                       {!searchLoading && matchingProjects.length === 0 && matchingTasks.length === 0 && searchUsers.length === 0 && <div className="tf-search-empty">No matching projects, tasks or people.</div>}
-                      {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openProject(project.id); setSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Open project workspace</small></span></button>)}</div>}
-                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter(task.project.id); setTaskFilter("ALL"); openView("tasks"); setSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
+                      {matchingProjects.length > 0 && <div className="tf-search-group"><span>PROJECTS</span>{matchingProjects.map((project) => <button key={project.id} onClick={() => { openProject(project.id); updateSearchQuery(""); }}><FolderKanban size={15} /><span><strong>{project.name}</strong><small>Open project workspace</small></span></button>)}</div>}
+                      {matchingTasks.length > 0 && <div className="tf-search-group"><span>TASKS</span>{matchingTasks.map((task) => <button key={task.id} onClick={() => { setTaskScope("PROJECT"); setTaskProjectFilter(task.project.id); setTaskFilter("ALL"); openView("tasks"); updateSearchQuery(""); }}><ListTodo size={15} /><span><strong>{task.title}</strong><small>{task.project.name}</small></span></button>)}</div>}
                       {searchUsers.length > 0 && <div className="tf-search-group"><span>PEOPLE</span>{searchUsers.map((person) => <button key={person.id} onClick={() => { void navigator.clipboard?.writeText(person.id); openView("members"); }} title="Copy user ID"><Users size={15} /><span><strong>{person.name}</strong><small>{person.email} · copy user ID</small></span></button>)}</div>}
                     </div>
                   </>
