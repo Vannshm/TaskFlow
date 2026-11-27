@@ -302,8 +302,6 @@
 .tf-footer button:hover { color: #d05c57; }
 .tf-full-panel { padding: 20px; min-height: 320px; }
 .tf-full-panel > .tf-panel-heading { margin-bottom: 14px; }
-.tf-project-list-expanded { margin-top: 3px; }
-.tf-project-list-expanded .tf-project-row { min-height: 62px; }
 .tf-filter-row { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; padding: 12px 0; border-top: 1px solid #f0f1f4; border-bottom: 1px solid #f0f1f4; }
 .tf-filter-row > span { display: inline-flex; align-items: center; gap: 5px; margin-right: 5px; color: #959ca8; font-size: 9px; }
 .tf-filter-row button { padding: 6px 10px; border: 1px solid #eceef2; border-radius: 20px; color: #858d9a; background: white; font-size: 9px; cursor: pointer; }
