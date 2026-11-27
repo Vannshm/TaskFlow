@@ -230,6 +230,16 @@ export default function DashboardPage() {
   const [projectDescription, setProjectDescription] = useState("");
   const [creatingProject, setCreatingProject] = useState(false);
   const [projectFormError, setProjectFormError] = useState("");
+  const [showCreateTask, setShowCreateTask] = useState(false);
+  const [taskTitle, setTaskTitle] = useState("");
+  const [taskDescription, setTaskDescription] = useState("");
+  const [taskProjectId, setTaskProjectId] = useState("");
+  const [taskPriority, setTaskPriority] = useState<Task["priority"]>("MEDIUM");
+  const [taskDueDate, setTaskDueDate] = useState("");
+  const [taskAssigneeId, setTaskAssigneeId] = useState("");
+  const [creatingTask, setCreatingTask] = useState(false);
+  const [taskFormError, setTaskFormError] = useState("");
+  const [pageNotice, setPageNotice] = useState("");
   const [completingTaskId, setCompletingTaskId] = useState<string | null>(null);
   const [invitationActionId, setInvitationActionId] = useState<string | null>(null);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -347,6 +357,14 @@ export default function DashboardPage() {
     return Array.from(people.values()).sort((a, b) => a.user.name.localeCompare(b.user.name));
   }, [projects, user?.id]);
 
+  // Tasks can only be created in active projects; the backend rejects archived
+  // and completed projects. Assignees are selected from the chosen project's members.
+  const activeProjects = useMemo(
+    () => projects.filter((project) => project.status === "ACTIVE"),
+    [projects],
+  );
+  const selectedTaskProject = activeProjects.find((project) => project.id === taskProjectId);
+
   const weeklyProgress = useMemo(() => {
     const today = new Date();
     const mondayOffset = (today.getDay() + 6) % 7;
@@ -395,6 +413,71 @@ export default function DashboardPage() {
     setView(nextView);
     setMobileNavOpen(false);
     setSearchOpen(false);
+  };
+
+  const openCreateTask = () => {
+    setTaskTitle("");
+    setTaskDescription("");
+    setTaskProjectId(activeProjects[0]?.id || "");
+    setTaskPriority("MEDIUM");
+    setTaskDueDate("");
+    setTaskAssigneeId(user?.id || "");
+    setTaskFormError("");
+    setShowCreateTask(true);
+  };
+
+  const closeCreateTask = () => {
+    if (creatingTask) return;
+    setShowCreateTask(false);
+    setTaskFormError("");
+  };
+
+  const handleCreateTask = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedTitle = taskTitle.trim();
+    if (!normalizedTitle) {
+      setTaskFormError("Task title is required.");
+      return;
+    }
+    if (normalizedTitle.length > 160) {
+      setTaskFormError("Task title cannot exceed 160 characters.");
+      return;
+    }
+    if (!taskProjectId || !activeProjects.some((project) => project.id === taskProjectId)) {
+      setTaskFormError("Choose an active project for this task.");
+      return;
+    }
+
+    const projectName = selectedTaskProject?.name || "your project";
+    setCreatingTask(true);
+    setTaskFormError("");
+    setPageError("");
+    setPageNotice("");
+
+    try {
+      await apiRequest<Task>(`/tasks/project/${taskProjectId}/tasks`, {
+        method: "POST",
+        body: JSON.stringify({
+          title: normalizedTitle,
+          description: taskDescription.trim() || undefined,
+          assignedToId: taskAssigneeId || null,
+          priority: taskPriority,
+          dueDate: taskDueDate ? new Date(`${taskDueDate}T00:00:00.000Z`).toISOString() : null,
+        }),
+      });
+
+      setShowCreateTask(false);
+      setPageNotice(`“${normalizedTitle}” was created in ${projectName}.`);
+      setTaskTitle("");
+      setTaskDescription("");
+      setTaskDueDate("");
+      await refreshDashboard();
+    } catch (error) {
+      setTaskFormError(error instanceof Error ? error.message : "Could not create task.");
+    } finally {
+      setCreatingTask(false);
+    }
   };
 
   const handleCreateProject = async (event: FormEvent<HTMLFormElement>) => {
@@ -582,11 +665,13 @@ export default function DashboardPage() {
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
                   <RefreshCw size={15} className={refreshing ? "tf-spin" : ""} /> {refreshing ? "Refreshing" : "Refresh"}
                 </button>
-                <button className="tf-primary-button" onClick={() => setShowCreateProject(true)}><Plus size={16} /> New project</button>
+                <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>
+                <button className="tf-secondary-button" onClick={() => setShowCreateProject(true)}><FolderKanban size={15} /> New project</button>
               </div>
             </div>
 
             {pageError && <div className="tf-alert"><AlertCircle size={16} /><span>{pageError}</span><button onClick={() => setPageError("")} aria-label="Dismiss error"><X size={15} /></button></div>}
+            {pageNotice && <div className="tf-success-alert" role="status"><CheckCircle2 size={16} /><span>{pageNotice}</span><button onClick={() => setPageNotice("")} aria-label="Dismiss message"><X size={15} /></button></div>}
             {sectionErrors.length > 0 && <div className="tf-soft-alert"><AlertCircle size={15} /><span>Some workspace information is unavailable: {sectionErrors.join(" ")}</span></div>}
 
             {view === "overview" && (
@@ -662,8 +747,9 @@ export default function DashboardPage() {
                   <section className="tf-panel tf-quick-panel">
                     <div className="tf-quick-intro"><div><span className="tf-eyebrow"><Sparkles size={12} /> GET MOVING</span><h2>Start your next step</h2><p>Pick up where your team left off.</p></div><span className="tf-quick-spark"><Sparkles size={20} /></span></div>
                     <div className="tf-quick-list">
-                      <button onClick={() => setShowCreateProject(true)}><span className="tf-quick-icon blue"><Plus size={16} /></span><span><strong>Create a project</strong><small>Set up a new team workspace</small></span><ChevronRight size={16} /></button>
-                      <button onClick={() => openView("tasks")}><span className="tf-quick-icon violet"><ListTodo size={16} /></span><span><strong>Review my tasks</strong><small>{tasks.length} assigned to you</small></span><ChevronRight size={16} /></button>
+                      <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                      <button onClick={() => setShowCreateProject(true)}><span className="tf-quick-icon violet"><Plus size={16} /></span><span><strong>Create a project</strong><small>Set up a new team workspace</small></span><ChevronRight size={16} /></button>
+                      <button onClick={() => openView("tasks")}><span className="tf-quick-icon amber"><ListTodo size={16} /></span><span><strong>Review my tasks</strong><small>{tasks.length} assigned to you</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("invitations")}><span className="tf-quick-icon amber"><Mail size={16} /></span><span><strong>Project invitations</strong><small>{invitations.length} waiting for a response</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("activity")}><span className="tf-quick-icon green"><Activity size={16} /></span><span><strong>See team activity</strong><small>Latest project updates</small></span><ChevronRight size={16} /></button>
                     </div>
@@ -733,6 +819,111 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+
+      {showCreateTask && (
+        <div className="tf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCreateTask(); }}>
+          <form className="tf-create-modal tf-task-modal" onSubmit={handleCreateTask}>
+            <div className="tf-modal-header">
+              <div>
+                <span className="tf-modal-icon"><ListTodo size={17} /></span>
+                <div><h2>Create a task</h2><p>Add a clear next step to one of your project workspaces.</p></div>
+              </div>
+              <button type="button" className="tf-modal-close" aria-label="Close" onClick={closeCreateTask}><X size={18} /></button>
+            </div>
+
+            {activeProjects.length === 0 ? (
+              <div className="tf-task-no-project">
+                <span className="tf-empty-icon"><FolderKanban size={20} /></span>
+                <strong>No active projects available</strong>
+                <p>Create a project first, or ask a project owner to add you to an active workspace. Tasks must belong to an active project.</p>
+                <button type="button" className="tf-secondary-button tf-small-button" onClick={() => { closeCreateTask(); setShowCreateProject(true); }}>
+                  <Plus size={14} /> Create a project
+                </button>
+              </div>
+            ) : (
+              <>
+                <div className="tf-task-fields-grid">
+                  <div className="tf-task-field tf-task-field-wide">
+                    <label htmlFor="task-project">Project <span>Required</span></label>
+                    <select
+                      id="task-project"
+                      value={taskProjectId}
+                      onChange={(event) => {
+                        setTaskProjectId(event.target.value);
+                        setTaskAssigneeId(user?.id || "");
+                      }}
+                      required
+                    >
+                      <option value="">Select an existing project</option>
+                      {activeProjects.map((project) => (
+                        <option key={project.id} value={project.id}>{project.name}</option>
+                      ))}
+                    </select>
+                    <small className="tf-task-field-hint">Choose where this task belongs. Completed and archived projects are not available.</small>
+                  </div>
+
+                  <div className="tf-task-field">
+                    <label htmlFor="task-title">Task title <span>Required</span></label>
+                    <input
+                      id="task-title"
+                      value={taskTitle}
+                      onChange={(event) => setTaskTitle(event.target.value)}
+                      placeholder="e.g. Design the onboarding flow"
+                      maxLength={160}
+                      autoFocus
+                      required
+                    />
+                    <small className="tf-task-field-hint">{taskTitle.trim().length}/160 characters</small>
+                  </div>
+
+                  <div className="tf-task-field">
+                    <label htmlFor="task-priority">Priority</label>
+                    <select id="task-priority" value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as Task["priority"])}>
+                      <option value="LOW">Low</option>
+                      <option value="MEDIUM">Medium</option>
+                      <option value="HIGH">High</option>
+                      <option value="URGENT">Urgent</option>
+                    </select>
+                    <small className="tf-task-field-hint">Set the urgency for your team.</small>
+                  </div>
+
+                  <div className="tf-task-field">
+                    <label htmlFor="task-assignee">Assign to</label>
+                    <select id="task-assignee" value={taskAssigneeId} onChange={(event) => setTaskAssigneeId(event.target.value)}>
+                      <option value="">Unassigned</option>
+                      {(selectedTaskProject?.members || []).map((member) => (
+                        <option key={member.user.id} value={member.user.id}>
+                          {member.user.name}{member.user.id === user?.id ? " (you)" : ""} · {member.role.toLowerCase()}
+                        </option>
+                      ))}
+                    </select>
+                    <small className="tf-task-field-hint">Only members of the selected project can be assigned.</small>
+                  </div>
+
+                  <div className="tf-task-field">
+                    <label htmlFor="task-due-date">Due date <span>Optional</span></label>
+                    <input id="task-due-date" type="date" value={taskDueDate} onChange={(event) => setTaskDueDate(event.target.value)} />
+                    <small className="tf-task-field-hint">You can leave this blank.</small>
+                  </div>
+
+                  <div className="tf-task-field tf-task-field-wide">
+                    <label htmlFor="task-description">Description <span>Optional</span></label>
+                    <textarea id="task-description" value={taskDescription} onChange={(event) => setTaskDescription(event.target.value)} placeholder="Add context, acceptance criteria or useful notes…" rows={3} />
+                  </div>
+                </div>
+                <p className="tf-task-start-status"><CheckCircle2 size={14} /> New tasks start with <strong>To do</strong>. Assigning it to yourself adds it to your My tasks list.</p>
+              </>
+            )}
+
+            {taskFormError && <p className="tf-form-error"><AlertCircle size={14} /> {taskFormError}</p>}
+            <div className="tf-modal-actions">
+              <button type="button" className="tf-secondary-button" onClick={closeCreateTask} disabled={creatingTask}>Cancel</button>
+              {activeProjects.length > 0 && <button type="submit" className="tf-primary-button" disabled={creatingTask || !taskProjectId}>{creatingTask ? "Creating…" : <><Plus size={15} /> Create task</>}</button>}
+            </div>
+          </form>
+        </div>
+      )}
 
       {showCreateProject && (
         <div className="tf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCreateModal(); }}>
