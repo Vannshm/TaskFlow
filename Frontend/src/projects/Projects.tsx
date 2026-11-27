@@ -1,8 +1,8 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3,
-  FolderKanban, ListTodo, Pencil, Plus, ShieldCheck, Trash2, Users, X,
+  AlertTriangle, ArrowLeft, ArrowRight, Bell, CheckCircle2, Clock3,
+  FolderKanban, ListTodo, Mail, Pencil, Plus, ShieldCheck, Trash2, Users, X,
 } from "lucide-react";
 import "./Projects.css";
 
@@ -29,6 +29,13 @@ export interface ProjectTask {
   project: { id: string; name: string; status: string };
 }
 export interface ProjectUpdatePayload { name: string; description: string; }
+export interface ProjectWorkspaceActivity {
+  id: string;
+  action: string;
+  createdAt: string;
+  actor: Pick<User, "name"> | null;
+  project: { id: string; name: string };
+}
 
 export function formatDate(value: string) {
   const date = new Date(value);
@@ -229,12 +236,21 @@ interface ProjectWorkspaceProps {
   tasks: ProjectTask[];
   currentUserId: string;
   canCreateTask: boolean;
+  activities: ProjectWorkspaceActivity[];
+  unreadNotifications: number;
+  pendingInvitations: number;
   onBackToProjects: () => void;
   onCreateTask: () => void;
+  onOpenActivity: () => void;
+  onOpenNotifications: () => void;
+  onOpenInvitations: () => void;
 }
 type WorkspaceTab = "overview" | "tasks" | "members";
 
-export function ProjectWorkspace({ project, tasks, currentUserId, canCreateTask, onBackToProjects, onCreateTask }: ProjectWorkspaceProps) {
+export function ProjectWorkspace({
+  project, tasks, currentUserId, canCreateTask, activities, unreadNotifications, pendingInvitations,
+  onBackToProjects, onCreateTask, onOpenActivity, onOpenNotifications, onOpenInvitations,
+}: ProjectWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<WorkspaceTab>("overview");
   const [taskStatusFilter, setTaskStatusFilter] = useState<"ALL" | ProjectTask["status"]>("ALL");
   const completed = tasks.filter((task) => task.status === "COMPLETED").length;
@@ -303,6 +319,48 @@ export function ProjectWorkspace({ project, tasks, currentUserId, canCreateTask,
             <div className="tf-panel-heading"><div><h2>Project tasks</h2><p>Latest work in {project.name}</p></div><button className="tf-panel-link tf-project-view-all" type="button" onClick={() => setActiveTab("tasks")}>View all <ArrowRight size={14} /></button></div>
             {renderTaskRows(tasks.slice(0, 6))}
           </section>
+
+          <div className="tf-project-global-panels">
+            <section className="tf-panel tf-project-global-activity">
+              <div className="tf-panel-heading">
+                <div><h2>Workspace activity</h2><p>Latest updates across all your projects</p></div>
+                <button className="tf-panel-icon-button" type="button" onClick={onOpenActivity} aria-label="Open all workspace activity"><ArrowRight size={15} /></button>
+              </div>
+              {activities.length === 0 ? (
+                <div className="tf-project-global-empty">No recent workspace activity yet.</div>
+              ) : (
+                <div className="tf-project-global-activity-list">
+                  {activities.slice(0, 4).map((activity) => (
+                    <article className="tf-project-global-activity-row" key={activity.id}>
+                      <span className="tf-project-global-activity-dot" />
+                      <div>
+                        <strong>{activity.actor?.name || "A teammate"} {activity.action.toLowerCase().replaceAll("_", " ")}</strong>
+                        <small>{activity.project.name} · {formatDate(activity.createdAt)}</small>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              )}
+              <button className="tf-panel-link" type="button" onClick={onOpenActivity}>View all workspace activity <ArrowRight size={14} /></button>
+            </section>
+
+            <section className="tf-panel tf-project-global-inbox">
+              <div className="tf-panel-heading"><div><h2>Workspace inbox</h2><p>Updates from every project you belong to</p></div></div>
+              <button className="tf-project-global-inbox-row" type="button" onClick={onOpenNotifications}>
+                <span className="tf-project-global-inbox-icon"><Bell size={15} /></span>
+                <span><strong>Notifications</strong><small>Unread workspace updates</small></span>
+                <b>{unreadNotifications}</b>
+                <ArrowRight size={14} />
+              </button>
+              <button className="tf-project-global-inbox-row" type="button" onClick={onOpenInvitations}>
+                <span className="tf-project-global-inbox-icon"><Mail size={15} /></span>
+                <span><strong>Project invitations</strong><small>Invitations across your workspace</small></span>
+                <b>{pendingInvitations}</b>
+                <ArrowRight size={14} />
+              </button>
+              <p className="tf-project-global-inbox-note">These are workspace-wide, not limited to {project.name}.</p>
+            </section>
+          </div>
         </>
       )}
       {activeTab === "tasks" && (
