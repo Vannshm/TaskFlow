@@ -8,6 +8,7 @@ import {
   CalendarDays,
   Check,
   CheckCircle2,
+  Clock3,
   ChevronDown,
   ChevronRight,
   FolderKanban,
