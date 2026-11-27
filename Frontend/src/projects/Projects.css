@@ -97,3 +97,23 @@
 .tf-project-row-clickable { cursor: pointer; }
 .tf-project-row-clickable:hover .tf-project-copy strong { color: var(--tf-blue); }
 .tf-project-row-clickable:focus-visible { outline: 3px solid rgba(40,121,239,.22); outline-offset: 3px; border-radius: 8px; }
+
+.tf-project-global-panels { display: grid; grid-template-columns: minmax(0,1.15fr) minmax(260px,.85fr); gap: 12px; }
+.tf-project-global-activity, .tf-project-global-inbox { min-width: 0; padding: 16px 17px 13px; }
+.tf-project-global-activity-list { margin-top: 5px; }
+.tf-project-global-activity-row { display: flex; align-items: flex-start; gap: 9px; padding: 10px 2px; border-top: 1px solid #f1f2f5; }
+.tf-project-global-activity-dot { width: 7px; height: 7px; flex: 0 0 7px; margin-top: 4px; border-radius: 50%; background: #6b9be0; }
+.tf-project-global-activity-row > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.tf-project-global-activity-row strong { color: #4c5665; font-size: 9px; font-weight: 600; text-transform: capitalize; }
+.tf-project-global-activity-row small { color: #9ba3af; font-size: 8px; }
+.tf-project-global-empty { padding: 17px 2px; color: #9ba3af; font-size: 9px; }
+.tf-project-global-inbox-row { width: 100%; display: flex; align-items: center; gap: 9px; padding: 11px 1px; border: 0; border-top: 1px solid #f1f2f5; color: inherit; background: transparent; text-align: left; cursor: pointer; }
+.tf-project-global-inbox-row > span:nth-child(2) { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.tf-project-global-inbox-icon { width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; color: #5f8bc4; background: #eff5ff; }
+.tf-project-global-inbox-row strong { color: #4d5868; font-size: 9px; }
+.tf-project-global-inbox-row small { color: #9ba3af; font-size: 8px; }
+.tf-project-global-inbox-row b { min-width: 20px; padding: 3px 5px; border-radius: 14px; color: #687b96; background: #f0f3f7; font-size: 8px; font-weight: 700; text-align: center; }
+.tf-project-global-inbox-row > svg { color: #adb6c2; }
+.tf-project-global-inbox-row:hover > span:nth-child(2) strong { color: var(--tf-blue); }
+.tf-project-global-inbox-note { margin: 6px 0 0; padding-top: 9px; border-top: 1px solid #f1f2f5; color: #9ba3af; font-size: 8px; line-height: 1.45; }
+@media (max-width: 850px) { .tf-project-global-panels { grid-template-columns: 1fr; } }
