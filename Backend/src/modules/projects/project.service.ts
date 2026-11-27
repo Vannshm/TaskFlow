@@ -206,11 +206,11 @@ export const updateProject = async ({userId,projectId,name,description}:UpdatePr
     await createActivity({
   projectId:projectId,
   actorId: userId,
-  action: "TASK_UPDATE_FORBIDDEN",
+  action: "PROJECT_UPDATED",
   entityType: "PROJECT",
   entityId: projectId,
   metadata: {
-    taskTitle: updatedProject.name,
+    projectName: updatedProject.name,
   },
 });
 
@@ -247,16 +247,11 @@ export const deleteProject = async (userId: string, projectId: string) => {
     }
   })
 
-    await createActivity({
-  projectId: projectId,
-  actorId: userId,
-  action: "PROJECT_DELETE_FORBIDDEN",
-  entityType: "PROJECT",
-  entityId: projectId,
-  metadata: {
-    taskTitle: deletedProject.name,
-  },
-});
+    // Activity rows are cascade-deleted with their project. Creating an activity
+    // after deletion would reference a project that no longer exists and cause
+    // this otherwise successful DELETE request to fail with a foreign-key error.
+
+
 
   return deletedProject;
 }
