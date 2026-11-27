@@ -28,7 +28,7 @@ export interface ProjectTask {
   assignedTo: User | null;
   project: { id: string; name: string; status: string };
 }
-export interface ProjectUpdatePayload { name: string; description: string | null; }
+export interface ProjectUpdatePayload { name: string; description: string; }
 
 export function formatDate(value: string) {
   const date = new Date(value);
@@ -89,7 +89,7 @@ export default function Projects({ projects, currentUserId, onCreateProject, onS
     setSavingProject(true);
     setEditError("");
     try {
-      await onUpdateProject(editingProject.id, { name: editName.trim(), description: editDescription.trim() || null });
+      await onUpdateProject(editingProject.id, { name: editName.trim(), description: editDescription.trim() });
       setEditingProject(null);
     } catch (error) {
       setEditError(error instanceof Error ? error.message : "Could not update this project.");
