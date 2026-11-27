@@ -81,6 +81,12 @@ interface Task {
   project: { id: string; name: string; status: string };
 }
 
+interface ProjectTask extends Omit<Task, "project"> {
+  createdBy: User;
+  assignedTo: User | null;
+  project: Task["project"];
+}
+
 interface ActivityItem {
   id: string;
   action: string;
@@ -207,7 +213,10 @@ export default function DashboardPage() {
   const [user, setUser] = useState<User | null>(null);
   const [summary, setSummary] = useState<DashboardSummary>(EMPTY_SUMMARY);
   const [projects, setProjects] = useState<Project[]>([]);
+  // "tasks" is intentionally the personal assigned-to-me feed.
+  // "projectTasks" contains every task in every project the user belongs to.
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [projectTasks, setProjectTasks] = useState<ProjectTask[]>([]);
   const [activities, setActivities] = useState<ActivityItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
@@ -225,6 +234,8 @@ export default function DashboardPage() {
 
   const [projectTab, setProjectTab] = useState<"projects" | "members">("projects");
   const [taskFilter, setTaskFilter] = useState<TaskFilter>("ALL");
+  const [taskScope, setTaskScope] = useState<"PROJECT" | "MINE">("PROJECT");
+  const [taskProjectFilter, setTaskProjectFilter] = useState("ALL");
   const [showCreateProject, setShowCreateProject] = useState(false);
   const [projectName, setProjectName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -263,8 +274,46 @@ export default function DashboardPage() {
 
     if (summaryResult.status === "fulfilled") setSummary(summaryResult.value);
     else errors.push("Dashboard summary could not be loaded.");
-    if (projectResult.status === "fulfilled") setProjects(projectResult.value);
-    else errors.push("Projects could not be loaded.");
+    if (projectResult.status === "fulfilled") {
+      const projectList = projectResult.value;
+      setProjects(projectList);
+
+      // The personal /tasks endpoint only returns tasks assigned to the
+      // current user. Load each member-visible project task board as well,
+      // so the dashboard can show the team's complete project workload.
+      const projectTaskResults = await Promise.allSettled(
+        projectList.map(async (project) => {
+          const projectTasks = await apiRequest<Omit<ProjectTask, "project">[]>(
+            `/tasks/project/${project.id}/tasks`,
+          );
+          return projectTasks.map((task) => ({
+            ...task,
+            project: {
+              id: project.id,
+              name: project.name,
+              status: project.status,
+            },
+          }));
+        }),
+      );
+
+      const allProjectTasks: ProjectTask[] = [];
+      let projectTaskLoadFailed = false;
+      projectTaskResults.forEach((result) => {
+        if (result.status === "fulfilled") allProjectTasks.push(...result.value);
+        else projectTaskLoadFailed = true;
+      });
+      allProjectTasks.sort(
+        (a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+      );
+      setProjectTasks(allProjectTasks);
+      if (projectTaskLoadFailed) errors.push("Some project task boards could not be loaded.");
+    } else {
+      setProjects([]);
+      setProjectTasks([]);
+      errors.push("Projects could not be loaded.");
+    }
+
     if (taskResult.status === "fulfilled") setTasks(taskResult.value);
     else errors.push("Your assigned tasks could not be loaded.");
     if (activityResult.status === "fulfilled") setActivities(activityResult.value.activities || []);
@@ -341,8 +390,12 @@ export default function DashboardPage() {
 
   const matchingTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return query.length >= 2 ? tasks.filter((task) => `${task.title} ${task.project.name}`.toLowerCase().includes(query)).slice(0, 5) : [];
-  }, [tasks, searchQuery]);
+    return query.length >= 2
+      ? projectTasks
+          .filter((task) => `${task.title} ${task.project.name}`.toLowerCase().includes(query))
+          .slice(0, 5)
+      : [];
+  }, [projectTasks, searchQuery]);
 
   const collaborators = useMemo(() => {
     const people = new Map<string, { user: User; projectNames: Set<string> }>();
@@ -357,13 +410,54 @@ export default function DashboardPage() {
     return Array.from(people.values()).sort((a, b) => a.user.name.localeCompare(b.user.name));
   }, [projects, user?.id]);
 
-  // Tasks can only be created in active projects; the backend rejects archived
-  // and completed projects. Assignees are selected from the chosen project's members.
+  // Project members can collaborate on tasks, but creating tasks is limited
+  // to owners and admins. The backend enforces the same rule independently.
   const activeProjects = useMemo(
     () => projects.filter((project) => project.status === "ACTIVE"),
     [projects],
   );
-  const selectedTaskProject = activeProjects.find((project) => project.id === taskProjectId);
+  const taskCreationProjects = useMemo(
+    () => activeProjects.filter((project) =>
+      project.members.some(
+        (member) =>
+          member.user.id === user?.id &&
+          (member.role === "OWNER" || member.role === "ADMIN"),
+      ),
+    ),
+    [activeProjects, user?.id],
+  );
+  const canCreateTask = taskCreationProjects.length > 0;
+  const selectedTaskProject = taskCreationProjects.find((project) => project.id === taskProjectId);
+
+  const visibleProjectTasks = useMemo(
+    () => projectTasks.filter((task) =>
+      taskProjectFilter === "ALL" || task.project.id === taskProjectFilter,
+    ),
+    [projectTasks, taskProjectFilter],
+  );
+
+  const filteredProjectTasks = useMemo(
+    () => visibleProjectTasks.filter((task) =>
+      taskFilter === "ALL" || task.status === taskFilter,
+    ),
+    [visibleProjectTasks, taskFilter],
+  );
+
+  const filteredMyTasks = useMemo(
+    () => tasks.filter((task) => taskFilter === "ALL" || task.status === taskFilter),
+    [tasks, taskFilter],
+  );
+
+  const canCompleteProjectTask = useCallback((task: ProjectTask) => {
+    const project = projects.find((item) => item.id === task.project.id);
+    const membership = project?.members.find((member) => member.user.id === user?.id);
+    return (
+      task.assignedTo?.id === user?.id ||
+      task.createdBy.id === user?.id ||
+      membership?.role === "OWNER" ||
+      membership?.role === "ADMIN"
+    );
+  }, [projects, user?.id]);
 
   const weeklyProgress = useMemo(() => {
     const today = new Date();
@@ -376,15 +470,15 @@ export default function DashboardPage() {
       const date = new Date(monday);
       date.setDate(monday.getDate() + index);
       const dateKey = date.toDateString();
-      const count = tasks.filter((task) => task.status === "COMPLETED" && new Date(task.updatedAt).toDateString() === dateKey).length;
+      const count = projectTasks.filter((task) => task.status === "COMPLETED" && new Date(task.updatedAt).toDateString() === dateKey).length;
       return { label: date.toLocaleDateString(undefined, { weekday: "short" }), count, date };
     });
-  }, [tasks]);
+  }, [projectTasks]);
 
   const maxWeeklyCount = Math.max(1, ...weeklyProgress.map((day) => day.count));
   const completedThisWeek = weeklyProgress.reduce((total, day) => total + day.count, 0);
   const unreadNotifications = notifications.filter((item) => !item.readAt).length;
-  const upcomingTasks = tasks.filter((task) => {
+  const upcomingTasks = projectTasks.filter((task) => {
     if (!task.dueDate || task.status === "COMPLETED") return false;
     const due = new Date(task.dueDate);
     const now = new Date();
@@ -402,7 +496,7 @@ export default function DashboardPage() {
   const pageCopy: Record<View, { title: string; description: string }> = {
     overview: { title: "Overview", description: "A clear view of what’s moving across your workspace." },
     projects: { title: "Projects", description: "The workspaces you’re part of, all in one place." },
-    tasks: { title: "My tasks", description: "Tasks assigned to you across your projects." },
+    tasks: { title: "Tasks", description: "Shared project work and the tasks assigned directly to you." },
     activity: { title: "Activity", description: "The latest updates recorded across your projects." },
     members: { title: "Members", description: "People collaborating with you across TaskFlow." },
     notifications: { title: "Notifications", description: "Updates and reminders from your workspace." },
@@ -418,7 +512,7 @@ export default function DashboardPage() {
   const openCreateTask = () => {
     setTaskTitle("");
     setTaskDescription("");
-    setTaskProjectId(activeProjects[0]?.id || "");
+    setTaskProjectId(taskCreationProjects[0]?.id || "");
     setTaskPriority("MEDIUM");
     setTaskDueDate("");
     setTaskAssigneeId(user?.id || "");
@@ -444,8 +538,8 @@ export default function DashboardPage() {
       setTaskFormError("Task title cannot exceed 160 characters.");
       return;
     }
-    if (!taskProjectId || !activeProjects.some((project) => project.id === taskProjectId)) {
-      setTaskFormError("Choose an active project for this task.");
+    if (!taskProjectId || !taskCreationProjects.some((project) => project.id === taskProjectId)) {
+      setTaskFormError("Choose an active project where you are an owner or admin.");
       return;
     }
 
@@ -832,14 +926,11 @@ export default function DashboardPage() {
               <button type="button" className="tf-modal-close" aria-label="Close" onClick={closeCreateTask}><X size={18} /></button>
             </div>
 
-            {activeProjects.length === 0 ? (
+            {taskCreationProjects.length === 0 ? (
               <div className="tf-task-no-project">
                 <span className="tf-empty-icon"><FolderKanban size={20} /></span>
-                <strong>No active projects available</strong>
-                <p>Create a project first, or ask a project owner to add you to an active workspace. Tasks must belong to an active project.</p>
-                <button type="button" className="tf-secondary-button tf-small-button" onClick={() => { closeCreateTask(); setShowCreateProject(true); }}>
-                  <Plus size={14} /> Create a project
-                </button>
+                <strong>No project where you can create tasks</strong>
+                <p>Only project owners and admins can create tasks. Ask an owner to promote your role, or choose a project where you already have admin access.</p>
               </div>
             ) : (
               <>
@@ -856,7 +947,7 @@ export default function DashboardPage() {
                       required
                     >
                       <option value="">Select an existing project</option>
-                      {activeProjects.map((project) => (
+                      {taskCreationProjects.map((project) => (
                         <option key={project.id} value={project.id}>{project.name}</option>
                       ))}
                     </select>
@@ -919,7 +1010,7 @@ export default function DashboardPage() {
             {taskFormError && <p className="tf-form-error"><AlertCircle size={14} /> {taskFormError}</p>}
             <div className="tf-modal-actions">
               <button type="button" className="tf-secondary-button" onClick={closeCreateTask} disabled={creatingTask}>Cancel</button>
-              {activeProjects.length > 0 && <button type="submit" className="tf-primary-button" disabled={creatingTask || !taskProjectId}>{creatingTask ? "Creating…" : <><Plus size={15} /> Create task</>}</button>}
+              {taskCreationProjects.length > 0 && <button type="submit" className="tf-primary-button" disabled={creatingTask || !taskProjectId}>{creatingTask ? "Creating…" : <><Plus size={15} /> Create task</>}</button>}
             </div>
           </form>
         </div>
