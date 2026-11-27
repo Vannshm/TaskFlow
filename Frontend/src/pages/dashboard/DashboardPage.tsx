@@ -450,11 +450,14 @@ export default function DashboardPage() {
   );
 
   const canCompleteProjectTask = useCallback((task: ProjectTask) => {
+    const currentUserId = user?.id;
+    if (!currentUserId) return false;
+
     const project = projects.find((item) => item.id === task.project.id);
-    const membership = project?.members.find((member) => member.user.id === user?.id);
+    const membership = project?.members.find((member) => member.user.id === currentUserId);
     return (
-      task.assignedTo?.id === user?.id ||
-      task.createdBy.id === user?.id ||
+      task.assignedTo?.id === currentUserId ||
+      task.createdBy.id === currentUserId ||
       membership?.role === "OWNER" ||
       membership?.role === "ADMIN"
     );
