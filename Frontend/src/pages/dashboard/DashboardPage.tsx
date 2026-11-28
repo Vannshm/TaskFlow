@@ -31,7 +31,7 @@ import logo from "../../assets/taskflow-logo.png";
 import "./DashboardPage.css";
 import Projects, { Avatar, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
 import { formatDate, statusLabel } from "../../projects/projectUtils";
-import ProjectDetailsPage from "../projects/ProjectDetailsPage";
+import ProjectDetailsPage from "../project-details/ProjectDetailsPage";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
