@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import {
   AlertTriangle, ArrowRight, FolderKanban, Pencil, Plus, ShieldCheck, Trash2, X,
 } from "lucide-react";
+import { formatDate, statusLabel } from "./projectUtils";
 import "./Projects.css";
 
 export interface User { id: string; name: string; email: string; avatarUrl: string | null; }
@@ -30,18 +31,6 @@ export interface ProjectTask {
 }
 export interface ProjectUpdatePayload { name: string; description: string; }
 
-export function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" }).format(date);
-}
-export function statusLabel(status: string) {
-  const labels: Record<string, string> = {
-    ACTIVE: "Active", COMPLETED: "Completed", ARCHIVED: "Archived",
-    TODO: "To do", IN_PROGRESS: "In progress", IN_REVIEW: "In review",
-  };
-  return labels[status] || status.replaceAll("_", " ");
-}
 function getInitials(name: string) {
   return name.trim().split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("");
 }

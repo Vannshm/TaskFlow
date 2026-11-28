@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import logo from "../../assets/taskflow-logo.png";
 import "./DashboardPage.css";
-import Projects, { Avatar, formatDate, statusLabel, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
+import Projects, { Avatar, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
+import { formatDate, statusLabel } from "../../projects/projectUtils";
 import ProjectDetailsPage from "../projects/ProjectDetailsPage";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
@@ -778,7 +779,7 @@ export default function DashboardPage() {
                 <button className="tf-secondary-button" onClick={() => void refreshDashboard()} disabled={refreshing}>
                   <RefreshCw size={15} className={refreshing ? "tf-spin" : ""} /> {refreshing ? "Refreshing" : "Refresh"}
                 </button>
-                {view !== "project" && canCreateTask && <button className="tf-primary-button" onClick={openCreateTask}><Plus size={16} /> New task</button>}
+                {view !== "project" && canCreateTask && <button className="tf-primary-button" onClick={() => openCreateTask()}><Plus size={16} /> New task</button>}
                 <button className="tf-secondary-button" onClick={() => setShowCreateProject(true)}><FolderKanban size={15} /> New project</button>
               </div>
             </div>
@@ -899,7 +900,7 @@ export default function DashboardPage() {
                     <div className="tf-quick-intro"><div><span className="tf-eyebrow"><Sparkles size={12} /> GET MOVING</span><h2>Start your next step</h2><p>Pick up where your team left off.</p></div><span className="tf-quick-spark"><Sparkles size={20} /></span></div>
                     <div className="tf-quick-list">
                       {canCreateTask
-                        ? <button onClick={openCreateTask}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
+                        ? <button onClick={() => openCreateTask()}><span className="tf-quick-icon blue"><ListTodo size={16} /></span><span><strong>Create a task</strong><small>Add work to an existing project</small></span><ChevronRight size={16} /></button>
                         : <div className="tf-quick-permission-note">Task creation is available to project owners and admins.</div>}
                       <button onClick={() => setShowCreateProject(true)}><span className="tf-quick-icon violet"><Plus size={16} /></span><span><strong>Create a project</strong><small>Set up a new team workspace</small></span><ChevronRight size={16} /></button>
                       <button onClick={() => openView("tasks")}><span className="tf-quick-icon amber"><ListTodo size={16} /></span><span><strong>Review my tasks</strong><small>{tasks.length} assigned to you</small></span><ChevronRight size={16} /></button>
