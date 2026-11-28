@@ -13,11 +13,10 @@ import {
 } from "lucide-react";
 import {
   Avatar,
-  formatDate,
-  statusLabel,
   type Project,
   type ProjectTask,
 } from "../../projects/Projects";
+import { formatDate, statusLabel } from "../../projects/projectUtils";
 import "../../projects/Projects.css";
 
 interface ProjectWorkspaceActivity {
