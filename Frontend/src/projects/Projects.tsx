@@ -29,13 +29,6 @@ export interface ProjectTask {
   project: { id: string; name: string; status: string };
 }
 export interface ProjectUpdatePayload { name: string; description: string; }
-export interface ProjectWorkspaceActivity {
-  id: string;
-  action: string;
-  createdAt: string;
-  actor: Pick<User, "name"> | null;
-  project: { id: string; name: string };
-}
 
 export function formatDate(value: string) {
   const date = new Date(value);
