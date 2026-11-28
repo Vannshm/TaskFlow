@@ -719,7 +719,6 @@ export default function DashboardPage() {
           <header className="tf-topbar">
             <button className="tf-mobile-menu" onClick={() => setMobileNavOpen(true)} aria-label="Open menu"><Menu size={20} /></button>
             <button className="tf-brand-wordmark" onClick={() => openView("overview")}>
-              <img src={logo} alt="" />
               <span>TaskFlow</span>
             </button>
             <nav className="tf-top-nav" aria-label="Workspace navigation">
