@@ -18,6 +18,7 @@ import {
   type Project,
   type ProjectTask,
 } from "../../projects/Projects";
+import "../../projects/Projects.css";
 
 interface ProjectWorkspaceActivity {
   id: string;
@@ -26,8 +27,6 @@ interface ProjectWorkspaceActivity {
   actor: { name: string } | null;
   project: { id: string; name: string };
 }
-
-import "../../projects/Projects.css";
 
 interface ProjectDetailsPageProps {
   project: Project;
