@@ -1,7 +1,7 @@
 import { useState } from "react";
 import type { FormEvent } from "react";
 import {
-  AlertTriangle, FolderKanban, Pencil, Plus, ShieldCheck, Trash2, X,
+  AlertTriangle, ArrowRight, FolderKanban, Pencil, Plus, ShieldCheck, Trash2, X,
 } from "lucide-react";
 import "./Projects.css";
 
