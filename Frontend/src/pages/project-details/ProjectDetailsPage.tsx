@@ -15,8 +15,8 @@ import {
   Avatar,
   type Project,
   type ProjectTask,
-} from "../../projects/Projects";
-import { formatDate, statusLabel } from "../../projects/projectUtils";
+} from "../projects/Projects";
+import { formatDate, statusLabel } from "../projects/projectUtils";
 import "../../projects/Projects.css";
 
 interface ProjectWorkspaceActivity {
