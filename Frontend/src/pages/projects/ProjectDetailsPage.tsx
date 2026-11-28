@@ -26,6 +26,7 @@ interface ProjectWorkspaceActivity {
   actor: { name: string } | null;
   project: { id: string; name: string };
 }
+
 import "../../projects/Projects.css";
 
 interface ProjectDetailsPageProps {
