@@ -29,7 +29,8 @@ import {
 } from "lucide-react";
 import logo from "../../assets/taskflow-logo.png";
 import "./DashboardPage.css";
-import Projects, { Avatar, formatDate, ProjectWorkspace, statusLabel, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
+import Projects, { Avatar, formatDate, statusLabel, type Project, type ProjectTask as ProjectWorkspaceTask, type ProjectUpdatePayload, type User } from "../../projects/Projects";
+import ProjectDetailsPage from "../projects/ProjectDetailsPage";
 
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "/api").replace(/\/$/, "");
 
@@ -966,7 +967,8 @@ export default function DashboardPage() {
 
             {view === "project" && (
               selectedProject ? (
-                <ProjectWorkspace
+                <ProjectDetailsPage
+                  key={selectedProject.id}
                   project={selectedProject}
                   tasks={selectedProjectTasks}
                   currentUserId={user?.id || ""}
