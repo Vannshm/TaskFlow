@@ -17,8 +17,15 @@ import {
   statusLabel,
   type Project,
   type ProjectTask,
-  type ProjectWorkspaceActivity,
 } from "../../projects/Projects";
+
+interface ProjectWorkspaceActivity {
+  id: string;
+  action: string;
+  createdAt: string;
+  actor: { name: string } | null;
+  project: { id: string; name: string };
+}
 import "../../projects/Projects.css";
 
 interface ProjectDetailsPageProps {
