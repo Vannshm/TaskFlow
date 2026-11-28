@@ -130,3 +130,10 @@
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
+
+
+/* Project edit/delete dialogs must overlay the full app shell (including
+   the navbar and side rail), rather than remain inside the content stack. */
+.tf-project-modal-backdrop {
+  z-index: 1000;
+}

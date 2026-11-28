@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import type { FormEvent } from "react";
 import {
   AlertTriangle, ArrowRight, FolderKanban, Pencil, Plus, ShieldCheck, Trash2, X,
@@ -48,6 +49,12 @@ interface ProjectsProps {
 }
 
 export default function Projects({ projects, currentUserId, onCreateProject, onSelectProject, onUpdateProject, onDeleteProject }: ProjectsProps) {
+  // Render project dialogs above the complete application shell, not inside
+  // the content stacking context that sits below the topbar and side rail.
+  const modalPortalTarget = typeof document === "undefined"
+    ? null
+    : document.querySelector(".tf-dashboard") ?? document.body;
+
   const [editingProject, setEditingProject] = useState<Project | null>(null);
   const [editName, setEditName] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -156,8 +163,8 @@ export default function Projects({ projects, currentUserId, onCreateProject, onS
         )}
       </section>
 
-      {editingProject && (
-        <div className="tf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditing(); }}>
+      {editingProject && modalPortalTarget && createPortal(
+        <div className="tf-modal-backdrop tf-project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeEditing(); }}>
           <form className="tf-create-modal tf-project-modal" onSubmit={submitEdit}>
             <div className="tf-modal-header">
               <div><span className="tf-modal-icon"><Pencil size={17} /></span><div><h2>Edit project</h2><p>Update the project name and description.</p></div></div>
@@ -173,11 +180,12 @@ export default function Projects({ projects, currentUserId, onCreateProject, onS
               <button type="submit" className="tf-primary-button" disabled={savingProject}>{savingProject ? "Saving…" : "Save changes"}</button>
             </div>
           </form>
-        </div>
+        </div>,
+        modalPortalTarget
       )}
 
-      {deletingProject && (
-        <div className="tf-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleting(); }}>
+      {deletingProject && modalPortalTarget && createPortal(
+        <div className="tf-modal-backdrop tf-project-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDeleting(); }}>
           <section className="tf-create-modal tf-project-modal tf-delete-project-modal" role="dialog" aria-modal="true" aria-labelledby="delete-project-title">
             <div className="tf-modal-header">
               <div><span className="tf-modal-icon danger"><AlertTriangle size={17} /></span><div><h2 id="delete-project-title">Delete project</h2><p>This is a permanent action.</p></div></div>
@@ -207,7 +215,8 @@ export default function Projects({ projects, currentUserId, onCreateProject, onS
               </>
             )}
           </section>
-        </div>
+        </div>,
+        modalPortalTarget
       )}
     </>
   );
